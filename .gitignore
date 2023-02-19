@@ -1,0 +1,11 @@
+*.asv
+*.user
+build*
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.log
+*.out
+*.pdf
+*.run.xml

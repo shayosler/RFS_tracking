@@ -1,0 +1,72 @@
+\documentclass{article}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Packages
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage{amsmath}
+\usepackage{tikz}
+\usepackage{graphicx}
+\usepackage{fancyhdr} % Customize header and footer
+\usepackage{listings} % Allows syntax highlighting
+\usepackage{lstautogobble}
+\usepackage[hidelinks]{hyperref}
+\usepackage{float}
+\usepackage{pdfpages}
+\usepackage[margin=1.0in]{geometry}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% General document setup
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usetikzlibrary{positioning}
+\setlength{\parindent}{0em}
+\graphicspath{ {./} }
+
+\newcommand{\course}{MAE6760}
+\newcommand{\assignment}{\course{} Assignment N}
+\newcommand{\name}{Shay Osler}
+
+% PDF specific setup, links, title, bookmarks
+\hypersetup
+{
+  colorlinks=true,
+  linkcolor=black,
+  citecolor=black,
+  bookmarks=true,
+  pdftitle=\name{} - \assignment{},
+  urlcolor=blue
+}
+
+% Define formatting for code
+\lstset
+{
+  language=Matlab,
+  basicstyle=\ttfamily,
+  breaklines=false,
+  autogobble=true,
+  keywordstyle=\color{blue},
+  commentstyle=\color{green}
+}
+
+% Header and Footer
+\pagestyle{fancy}
+\lhead{\name}
+\chead{}
+\rhead{\assignment}
+
+\lfoot{}
+\cfoot{\thepage}
+\rfoot{}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Content
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+
+\section*{A.B}
+
+\section*{Matlab Code}
+\subsection*{problem\_1.m}
+\begin{lstlisting}[language=Matlab]
+\end{lstlisting}
+
+\end{document}
