@@ -1,7 +1,8 @@
-function [h] = plotgmdist(dist, x, y, varargin)
-% plotgmrfs(X, x, y, varargin) Plot a 2D gaussian mixture
+function [h] = plotgmphd(dist, x, y, varargin)
+% plotgmphd(dist, x, y, varargin) Plot a 2D gaussian mixture probability
+% hypothesis density (PHD)
 % Inputs:
-%   dist    Gaussian mixture representing the RFS     
+%   dist    Gaussian mixture representing the PHD   
 %   x       X (Northing) points to plot at 1xK
 %   y       Y (Easting) points to plot at 1xL
 
