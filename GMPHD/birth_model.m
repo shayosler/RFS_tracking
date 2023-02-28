@@ -44,9 +44,6 @@ options = statset('MaxIter', 1000);
 dist = fitgmdist([sn, se], 250, 'SharedCovariance', false, 'Options',options);
 n = 0:.1:60;
 e = -40:.1:40;
-figure
-%plotgmdist(dist, e, n);
-%axis equal
 
 gamma = GMRFS(dist.mu', dist.Sigma, dist.ComponentProportion);
 figure
