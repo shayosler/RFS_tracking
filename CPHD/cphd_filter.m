@@ -9,7 +9,7 @@ function [v_k, N_k, Xhat] = cphd_filter(v, N, rho, F, Q, ps, pd, gamma, rho_gamm
 %   F       State transition matrix x[k+1] = Fx[k]
 %   Q       Process noise, 2x2
 %   ps      Survival probability, state independent [clutter survival; target survival]
-%   pd      Detection probability
+%   pd      Detection probability [clutter detection prob; target detection prob]
 %   gamma   birth model intensity {mean number of clutter births (scalar); target birth model}
 %   rhogamma birth model cardinality distribution
 %   Z       Measurement set 2xJz
@@ -34,6 +34,8 @@ Ngamma0 = gamma(1);
 gamma1 = gamma(2);
 ps0 = ps(1);
 ps1 = ps(2);
+pd0 = pd(1);
+pd1 = pd(2);
 
 
 %% Prediction
@@ -146,8 +148,8 @@ for jz = 1:Jz
         kappaz = kappa;
 
         % Updated weights
-        wkz(j) = (pd * v_kk1.w(j) * qz) / (kappaz + pd * sum_likelihood);
-        if wkz(j) >= 1
+        wkz(j) = (pd1 * v_kk1.w(j) * qz) / (pd0 * kappaz * N_kk1 + pd1 * sum_likelihood);
+        if wkz(j) >= 1 || wkz(j) <= 0
             warning('Suspicious weight')
         end
     end
@@ -179,4 +181,10 @@ Xhat = [];
 %     end
 % end
 
+end
+
+function P = permnj(n, j)
+% P = permnj(n, j) Compute a permutation coefficient
+% P = n! / (n -j)!
+P = nchoosek(n, j) * factorial(j);
 end
