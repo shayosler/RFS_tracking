@@ -9,3 +9,4 @@ build*
 *.out
 *.pdf
 *.run.xml
+datasets/*
