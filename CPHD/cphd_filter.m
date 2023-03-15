@@ -1,13 +1,17 @@
-function [v_k, N_k, Xhat] = cphd_filter(v, N, F, Q, ps, pd, gamma, Z, H, R, kappa, U, T, Jmax, w_min)
-% Cardinalized PHD filter for tracking in 2d
+function [v_k, N_k, Xhat] = cphd_filter(v, N, rho, F, Q, ps, pd, gamma, rho_gamma, Z, H, R, kappa, U, T, Jmax, w_min)
+% Cardinalized PHD filter for tracking in 2d, with unknown clutter model
 % Inputs:
 %   v       Current "intensity" of the RFS being estimated
-%   N       N estimated number of targets
+%   N       N estimated number of clutter generators
+%   rho     Hybrid cardinality distribution, 1xn
+%           Assumes distribution is (potentially) nonzero on some range [0,
+%           n], but definitely 0 elsewhere
 %   F       State transition matrix x[k+1] = Fx[k]
 %   Q       Process noise, 2x2
-%   ps      Survival probability, state independent
+%   ps      Survival probability, state independent [clutter survival; target survival]
 %   pd      Detection probability
-%   gamma   birth model intensity
+%   gamma   birth model intensity {mean number of clutter births (scalar); target birth model}
+%   rhogamma birth model cardinality distribution
 %   Z       Measurement set 2xJz
 %   H       Measurement model z = Hx
 %   R       Measurement noise covariance, 2x2
@@ -24,6 +28,12 @@ function [v_k, N_k, Xhat] = cphd_filter(v, N, F, Q, ps, pd, gamma, Z, H, R, kapp
 %if isscalar(ps)
 %    ps = @(m) ps;
 %end
+
+% separate out augmented states
+Ngamma0 = gamma(1);
+gamma1 = gamma(2);
+ps0 = ps(1);
+ps1 = ps(2);
 
 
 %% Prediction
@@ -45,10 +55,34 @@ for j = 1:Jk
 end
 
 % Full prediction is sum of births and propagation
-v_kk1 = GMRFS(m_kk1, P_kk1, ps.*v.w) + gamma;
+v_kk1 = GMRFS(m_kk1, P_kk1, ps1.*v.w) + gamma;
 P_kk1 = v_kk1.P;
 m_kk1 = v_kk1.m;
-N_kk1 = ps * N + sum(gamma.w);
+
+% Predict number of clutter generators: clutter birth + clutter survival
+N_kk1 = Ngamma0 + ps0 * N;
+
+% Predict hybrid cardinality distribution
+phi = (ps1 * sum(v.w + ps0 * N)) / (sum(v.w + N));
+rho_kk1 = zeros(size(rho));
+
+% TODO: I think this should work, double check for off by one errors
+for ndd = 1:size(rho, 2)
+    rho_kk1_n = 0;
+    for j = 1:ndd
+        if j - ndd > size(rho_gamma, 2)
+            continue;
+        end
+
+        binom_sum = 0;
+        for l = j:size(rho, 2)
+            binom_sum = binom_sum + nchoosek(l, j) * rho(l) * (1-phi)^(l-j) * phi^j;
+        end
+        rho_kk1_n = rho_kk1_n + rho_gamma(ndd - j) * binom_sum;
+    end
+    rho_kk1(ndd) = rho_kk1_n;
+end
+
 
 %% Update
 % new estimated states is false detections + weighted sum over detection updates
