@@ -1,4 +1,4 @@
-function [v_k, N_k, Xhat] = cphd_filter(v, N, rho, F, Q, ps, pd, gamma, rho_gamma, Z, H, R, kappa, U, T, Jmax, w_min)
+function [v_k, N_k, Xhat, rho_k] = cphd_filter(v, N, rho, F, Q, ps, pd, gamma, rho_gamma, Z, H, R, kappa, U, T, Jmax, w_min)
 % Cardinalized PHD filter for tracking in 2d, with unknown clutter model
 % Inputs:
 %   v       Current "intensity" of the RFS being estimated
@@ -112,6 +112,29 @@ for j = 1:Jkk1
     P_kk(:, :, j) = (I - Kj * H) * P_kk1j * (I - Kj * H)' + Kj * R * Kj';
 end
 
+% Update cardinality distribution
+sum_weights = 0;
+for l = 1:Jkk1
+    sum_weights = sum_weights + v_kk1.w(l);
+end
+phi_kk1 = 1 - (pd1 * sum_weights + pd0 * N_kk1) / (sum_weights + N_kk1);
+% I'm pretty sure the denominator of this equation in the paper is
+% just a normalizing term
+rho_k = zeros(size(rho_kk1));
+psi0_k = zeros(size(rho_kk1));
+psi1_k = zeros(size(rho_kk1));
+for ndd = 1:size(rho_kk1, 2)
+    psi0_k = psi_ddot(0, phi_kk1, Jz, ndd);
+    psi1_k = psi_ddot(1, phi_kk1, Jz, ndd);
+    if ndd < Jz
+        rho_k(ndd) = 0;
+    else
+        rho_k(ndd) = rho_kk1(ndd) * psi_ddot(0, phi_kk1, Jz, ndd);
+    end
+end
+rho_k = rho_k ./ sum(rho_k);
+
+% Update intensity RFS
 sum_vD = GMRFS();
 for jz = 1:Jz
     % Apply each measurement to each element of the RFS, basically
@@ -145,6 +168,7 @@ for jz = 1:Jz
 
         % Clutter likelihood
         % TODO: per measurement clutter probabilities?
+        % TODO: non-uniform clutter probabilities
         kappaz = kappa;
 
         % Updated weights
@@ -152,6 +176,7 @@ for jz = 1:Jz
         if wkz(j) >= 1 || wkz(j) <= 0
             warning('Suspicious weight')
         end
+
     end
     sum_vD = sum_vD + GMRFS(m_kkz, P_kk, wkz);
 end
@@ -187,4 +212,17 @@ function P = permnj(n, j)
 % P = permnj(n, j) Compute a permutation coefficient
 % P = n! / (n -j)!
 P = nchoosek(n, j) * factorial(j);
+end
+
+function out = psi_ddot(u, phi, Jz, n)
+% PSI double dot function. I think that |Zk| in the paper
+% is referring the the cardinality of the observation RFS
+Zk_u = Jz + u;
+
+if n < Jz + u
+    out = 0;
+    return;
+end
+
+out = permnj(n, Zk_u) * (phi ^ (n - Zku));
 end
