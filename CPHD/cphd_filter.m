@@ -113,11 +113,11 @@ for j = 1:Jkk1
 end
 
 % Update cardinality distribution
-sum_weights = 0;
+sum_w_kk1 = 0;
 for l = 1:Jkk1
-    sum_weights = sum_weights + v_kk1.w(l);
+    sum_w_kk1 = sum_w_kk1 + v_kk1.w(l);
 end
-phi_kk1 = 1 - (pd1 * sum_weights + pd0 * N_kk1) / (sum_weights + N_kk1);
+phi_kk1 = 1 - (pd1 * sum_w_kk1 + pd0 * N_kk1) / (sum_w_kk1 + N_kk1);
 % I'm pretty sure the denominator of this equation in the paper is
 % just a normalizing term
 rho_k = zeros(size(rho_kk1));
@@ -136,10 +136,16 @@ rho_k = rho_k ./ sum(rho_k);
 
 % Update intensity RFS
 sum_vD = GMRFS();
+sum_Nk = 0;
 for jz = 1:Jz
     % Apply each measurement to each element of the RFS, basically
     % generating a new gaussian mixture for each measurement
     z = Z(:, jz);
+
+    % Clutter likelihood
+    % TODO: per measurement clutter probabilities?
+    % TODO: non-uniform clutter probabilities
+    kappaz = kappa;
 
     % Sum over all of the likelihoods of z given predicted m_kk1
     % weighted by wk
@@ -150,6 +156,11 @@ for jz = 1:Jz
         wkl = v_kk1.w(l);
         sum_likelihood = sum_likelihood + wkl * mvnpdf(z, H*m_kk1l, R + H*P_kk1l*H');
     end
+
+    % Denominator used for normalizing weights
+    weight_denom = (pd0 * kappaz * N_kk1 + pd1 * sum_likelihood);
+
+    sum_Nk = sum_Nk + (pd0 * kappaz) / weight_denom;
 
     m_kkz = zeros(size(m_kk1));
     wkz = zeros(Jkk1, 1);
@@ -166,13 +177,8 @@ for jz = 1:Jz
         P_kk1j = P_kk1(:, :, j);
         qz = mvnpdf(z, H*m_kk1j, R + H*P_kk1j*H');
 
-        % Clutter likelihood
-        % TODO: per measurement clutter probabilities?
-        % TODO: non-uniform clutter probabilities
-        kappaz = kappa;
-
         % Updated weights
-        wkz(j) = (pd1 * v_kk1.w(j) * qz) / (pd0 * kappaz * N_kk1 + pd1 * sum_likelihood);
+        wkz(j) = (pd1 * v_kk1.w(j) * qz) / weight_denom;
         if wkz(j) >= 1 || wkz(j) <= 0
             warning('Suspicious weight')
         end
@@ -181,8 +187,13 @@ for jz = 1:Jz
     sum_vD = sum_vD + GMRFS(m_kkz, P_kk, wkz);
 end
 
-v_k_unpruned = (1 - pd) .* v_kk1 + sum_vD;
-N_k = N_kk1 * (1-pd) + sum(sum_vD.w);
+% This ratio of inner products gets reused:
+psi_rho_ratio = sum(psi1_k .* rho_kk1) / sum(psi0_k .* rho_kk1);
+psi_rho_weights = psi_rho_ratio / (sum_w_kk1 + N_kk1);
+
+% qd = 1-pd
+v_k_unpruned = ((1 - pd1) * psi_rho_weights) .*  v_kk1 + sum_vD;
+N_k = N_kk1 * ((1 - pd0) * psi_rho_weights + sum_Nk);
 
 % TODO: pruning and estimate extraction has been moved out for now
 % I think that once there is functionality to only filter over the
