@@ -1,4 +1,4 @@
-function [h] = plot_fov(x, psi, r, fov, varargin)
+function [h] = plot_sonar_fov(x, psi, r, fov, varargin)
 %plot_fov(x, psi, r, fov) Plot the sonar's field of view
 %   Inputs:
 %       x       Sonar position [n, e]

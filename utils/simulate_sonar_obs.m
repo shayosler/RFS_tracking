@@ -1,5 +1,5 @@
-function [r, b] = simulate_obs(x, map, end_range, fov, lambda, sigma)
-% [r, b] = simulate_obs(x, map, end_range, fov, fp, fn)
+function [r, b, r_true, b_true] = simulate_sonar_obs(x, map, end_range, fov, lambda, sigma)
+% [r, b] = simulate_sonar_obs(x, map, end_range, fov, fp, fn)
 % Simulate sonar detections of targets. Sonar is assumed to be oriented
 % such that it looks directly forward, and has a symmetric field of view
 % Inputs:
@@ -15,9 +15,11 @@ function [r, b] = simulate_obs(x, map, end_range, fov, lambda, sigma)
 %               range/bearing space in the field of view
 %   sigma       Covariance matrix for range and bearing noise
 % Outputs:
-%   r         Ranges to observed targets, Mx1
-%   b         Bearings to observed targets, degrees relative to current
+%   r         "Measured" ranges to observed targets, Mx1
+%   b         "Measured" bearings to observed targets, degrees relative to current
 %             vehicle heading, Mx1
+%   r_true    True ranges to all visible targets, Kx1
+%   b_true    True bearings to all visible targets, Kx1
 
 % Validate args
 if numel(x) ~= 3
@@ -27,15 +29,15 @@ end
 % Calculate range/bearing to each target
 n_obj = size(map, 1);
 offset = map(:, 1:2) - repmat([x(1) x(2)], [n_obj, 1]);
-r = sqrt(sum(offset.^2, 2));
+r_true = sqrt(sum(offset.^2, 2));
 
 % Determine which targets are within the field of view
 % and which ones are actually detected
-b = atan2d(offset(:, 2), offset(:, 1)) - x(3);
-in_fov = r < end_range & abs(b) < fov/2;
+b_true = atan2d(offset(:, 2), offset(:, 1)) - x(3);
+in_fov = r_true < end_range & abs(b_true) < fov/2;
 detected = map(:, 3) > rand(n_obj, 1);
-r = r(in_fov & detected);
-b = b(in_fov & detected);
+r = r_true(in_fov & detected);
+b = b_true(in_fov & detected);
 
 % Corrupt observations
 noise = mvnrnd([0, 0], sigma, length(r));

@@ -71,5 +71,12 @@ if numel(w) > Jmax
     P = P(:, :, imax);
 end
 
+% Renormalize weights so that the total weight stays constant
+% TODO: this wasn't done in the paper, but it seems like a step that should
+% happen
+sum_unpruned = sum(v.w);
+sum_pruned = sum(w);
+w = (sum_unpruned / sum_pruned) .* w;
+
 v_out = GMRFS(m, P, w);
 end
