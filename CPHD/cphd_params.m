@@ -3,8 +3,9 @@ classdef cphd_params
     % Probability Hypothesis Density filter
 
     properties
-        T_merge     % Threshold for merging components during pruning        
-        T_discard   % Threshold for discarding components during pruning
+        Nmax        % Maximum number of targets to track
+        U           % Threshold for merging components during pruning        
+        T           % Threshold for discarding components during pruning
         Jmax        % Maximum number of components to keep
         w_min       % Minimum weight to be included in the output state estimate
     end

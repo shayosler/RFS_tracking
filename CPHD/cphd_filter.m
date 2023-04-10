@@ -1,26 +1,16 @@
-function [v_k, N_k, Xhat, rho_k] = cphd_filter(v, N, rho, F, Q, ps, pd, gamma, rho_gamma, Z, H, R, kappa, U, T, Jmax, w_min)
-% Cardinalized PHD filter for tracking in 2d, with unknown clutter model
+function [state_k, Xhat, lambda] = cphd_filter(state, measurement, model, params)
+% Cardinalized PHD filter for tracking with unknown clutter model
 % Inputs:
-%   v       Current "intensity" of the RFS being estimated
-%   N       N estimated number of clutter generators
-%   rho     Hybrid cardinality distribution, 1xn
-%           Assumes distribution is (potentially) nonzero on some range [0,
-%           n], but definitely 0 elsewhere
-%   F       State transition matrix x[k+1] = Fx[k]
-%   Q       Process noise, 2x2
-%   ps      Survival probability, state independent [clutter survival; target survival]
-%   pd      Detection probability [clutter detection prob; target detection prob]
-%   gamma   birth model intensity {mean number of clutter births (scalar); target birth model}
-%   rhogamma birth model cardinality distribution
-%   Z       Measurement set 2xJz
-%   H       Measurement model z = Hx
-%   R       Measurement noise covariance, 2x2
-%   kappa   Clutter intensity,
-%   U       Threshold for merging components during pruning
-%   T       Threshold for discarding components during pruning
-%   Jmax    Maximum number of components to keep
-%   w_min   Minimum weight to be included in the output state estimate
+%   state       cphd_state object containing the previous state of the system
+%   measurement cphd_measurement object containing the measurement(s) for 
+%               the current time step
+%   model       cphd_model object defining the model for the system
+%   params      cphd_params object defining the system parameters
 %   
+% Outputs:
+%   state_k     cphd_state object containing the estimated current state of
+%               the system
+%   lambda      Estimated clutter rate
 
 %if isscalar(pd)
 %    pd = @(m) pd;
@@ -29,14 +19,26 @@ function [v_k, N_k, Xhat, rho_k] = cphd_filter(v, N, rho, F, Q, ps, pd, gamma, r
 %    ps = @(m) ps;
 %end
 
-% separate out augmented states
-Ngamma0 = gamma(1);
-gamma1 = gamma(2);
-ps0 = ps(1);
-ps1 = ps(2);
-pd0 = pd(1);
-pd1 = pd(2);
+% Extract state
+v = state.v;
+N0 = state.N0;
+rho = state.rho;
 
+% Extract model data
+Ngamma0 = model.Ngamma0;
+gamma1 = model.gamma1;
+ps0 = model.ps0;
+ps1 = model.ps1;
+pd0 = model.pd0;
+pd1 = model.pd0;
+Q = model.Q;
+F = model.F;
+
+% Extract params
+Jmax = params.Jmax;
+T = params.T;
+U = params.U;
+w_min = params.w_min;
 
 %% Prediction
 % predicted intensity =
@@ -57,15 +59,15 @@ for j = 1:Jk
 end
 
 % Full prediction is sum of births and propagation
-v_kk1 = GMRFS(m_kk1, P_kk1, ps1.*v.w) + gamma;
+v_kk1 = GMRFS(m_kk1, P_kk1, ps1.*v.w) + gamma1;
 P_kk1 = v_kk1.P;
 m_kk1 = v_kk1.m;
 
 % Predict number of clutter generators: clutter birth + clutter survival
-N_kk1 = Ngamma0 + ps0 * N;
+N0_kk1 = Ngamma0 + ps0 * N0;
 
 % Predict hybrid cardinality distribution
-phi = (ps1 * sum(v.w + ps0 * N)) / (sum(v.w + N));
+phi = (ps1 * sum(v.w + ps0 * N)) / (sum(v.w + N0));
 rho_kk1 = zeros(size(rho));
 
 % TODO: I think this should work, double check for off by one errors
@@ -87,8 +89,11 @@ end
 
 
 %% Update
-% new estimated states is false detections + weighted sum over detection updates
-%  = (1-pd)v_kk1 + sum over detections
+
+% Extract measurement
+Z = measurement.Z;
+R = measurement.R;
+H = measurement.H;
 
 % Compute updated covariance matrix and kalman gains, which don't depend
 % on individual measurements 
@@ -117,7 +122,7 @@ sum_w_kk1 = 0;
 for l = 1:Jkk1
     sum_w_kk1 = sum_w_kk1 + v_kk1.w(l);
 end
-phi_kk1 = 1 - (pd1 * sum_w_kk1 + pd0 * N_kk1) / (sum_w_kk1 + N_kk1);
+phi_kk1 = 1 - (pd1 * sum_w_kk1 + pd0 * N0_kk1) / (sum_w_kk1 + N0_kk1);
 % I'm pretty sure the denominator of this equation in the paper is
 % just a normalizing term
 rho_k = zeros(size(rho_kk1));
@@ -158,7 +163,7 @@ for jz = 1:Jz
     end
 
     % Denominator used for normalizing weights
-    weight_denom = (pd0 * kappaz * N_kk1 + pd1 * sum_likelihood);
+    weight_denom = (pd0 * kappaz * N0_kk1 + pd1 * sum_likelihood);
 
     sum_Nk = sum_Nk + (pd0 * kappaz) / weight_denom;
 
@@ -189,35 +194,35 @@ end
 
 % This ratio of inner products gets reused:
 psi_rho_ratio = sum(psi1_k .* rho_kk1) / sum(psi0_k .* rho_kk1);
-psi_rho_weights = psi_rho_ratio / (sum_w_kk1 + N_kk1);
+psi_rho_weights = psi_rho_ratio / (sum_w_kk1 + N0_kk1);
 
 % qd = 1-pd
 v_k_unpruned = ((1 - pd1) * psi_rho_weights) .*  v_kk1 + sum_vD;
-N_k = N_kk1 * ((1 - pd0) * psi_rho_weights + sum_Nk);
+N0_k = N0_kk1 * ((1 - pd0) * psi_rho_weights + sum_Nk);
 
-% TODO: pruning and estimate extraction has been moved out for now
-% I think that once there is functionality to only filter over the
-% current FOV implemented in this function I can move it back in
-v_k = v_k_unpruned;
+%% Prune
+v_k = prune_gmphd(v_k_unpruned, T, U, Jmax); 
+ 
+%% Extract a state estimate from the RFS
 Xhat = [];
-% %% Prune
-% v_k = prune_gmphd(v_k_unpruned, T, U, Jmax);
-% 
-% % Renormalize the weights in v_k so that N_k stays the same
-% % TODO: this wasn't done in the paper, but it seems like a step that should
-% % happen
-% sum_pruned = sum(v_k.w);
-% v_k = N_k / sum_pruned .* v_k;
-% 
-% %% Extract a state estimate from the RFS
-% Xhat = [];
-% for i = 1:v_k.J
-%     if v_k.w(i) > w_min
-%         Xhat = [Xhat repmat(v_k.m(:, i), 1, round(v_k.w(i)))];
-%     end
-% end
+for i = 1:v_k.J
+    if v_k.w(i) > w_min
+        Xhat = [Xhat repmat(v_k.m(:, i), 1, round(v_k.w(i)))];
+    end
+end
+
+%% Outputs
+state_k = cphd_state();
+state_k.N0 = N0_k;
+state_k.v = v_k;
+state_k.rho = rho_k;
+
+lambda = N0_k * pd0;
 
 end
+
+
+%% Helper Functions
 
 function P = permnj(n, j)
 % P = permnj(n, j) Compute a permutation coefficient
