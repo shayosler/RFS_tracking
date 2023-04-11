@@ -27,6 +27,7 @@ rho = state.rho;
 % Extract model data
 Ngamma0 = model.Ngamma0;
 gamma1 = model.gamma1;
+rho_gamma1 = model.rho_gamma1;
 ps0 = model.ps0;
 ps1 = model.ps1;
 pd0 = model.pd0;
@@ -67,14 +68,15 @@ m_kk1 = v_kk1.m;
 N0_kk1 = Ngamma0 + ps0 * N0;
 
 % Predict hybrid cardinality distribution
-phi = (ps1 * sum(v.w + ps0 * N)) / (sum(v.w + N0));
+phi = (ps1 * sum(v.w + ps0 * N0)) / (sum(v.w + N0));
 rho_kk1 = zeros(size(rho));
 
 % TODO: I think this should work, double check for off by one errors
+% rho(j) = P(N==j-1
 for ndd = 1:size(rho, 2)
     rho_kk1_n = 0;
     for j = 1:ndd
-        if j - ndd > size(rho_gamma, 2)
+        if j - ndd > size(rho_gamma1, 2)
             continue;
         end
 
@@ -82,11 +84,10 @@ for ndd = 1:size(rho, 2)
         for l = j:size(rho, 2)
             binom_sum = binom_sum + nchoosek(l, j) * rho(l) * (1-phi)^(l-j) * phi^j;
         end
-        rho_kk1_n = rho_kk1_n + rho_gamma(ndd - j) * binom_sum;
+        rho_kk1_n = rho_kk1_n + rho_gamma1(ndd - j) * binom_sum;
     end
     rho_kk1(ndd) = rho_kk1_n;
 end
-
 
 %% Update
 

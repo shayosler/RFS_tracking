@@ -9,9 +9,9 @@ classdef cphd_model
         ps1         % Target survival probability
         pd0         % Clutter detection probability
         pd1         % Target detection probability
-        Ngamma      % Mean number of clutter births
+        Ngamma0     % Mean number of clutter births
         gamma1      % Target birth model
-        rho_gamma   % Target birth model cardinality distribution
+        rho_gamma1  % Target birth model cardinality distribution
         kappa       % Spatial likelihood of clutter
     end
 

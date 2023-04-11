@@ -31,16 +31,10 @@ model.ps0 = 0.1;  % Probability of clutter survival
 model.ps1 = 0.9;  % Probability of target survival
 
 % Target birth model
-bm = load('birth_model_100.mat');
+bm = load('../models/birth_model_100.mat');
 birth_rate = 1.0; % Expected rate of new births
 model.gamma1 = birth_rate .* bm.gamma;
-model.rho_gamma = poisspdf(0:1:params.Nmax, birth_rate);
-
-% clutter: poisson 
-A_fov = (pi * range^2) * (fov / 360);
-lambda = 2; % Expected number of clutter returns
-model.Ngamma = lambda;
-kappa = 1 / A_fov; % Clutter is equally likely anywhere
+model.rho_gamma1 = poisspdf(0:1:params.Nmax, birth_rate);
 
 % Sensor/measurement model
 fov = 90;
@@ -52,6 +46,12 @@ R = sigma_rb;
 R(2, 2) = range * sind(sigma_rb(2, 2));
 H = eye(n_states);
 
+% clutter: poisson 
+A_fov = (pi * range^2) * (fov / 360);
+lambda = 2; % Expected number of clutter returns
+model.Ngamma0 = lambda; % I don't think that Ngamma0 (mean birth rate) is the same thing as clutter rate
+kappa = 1 / A_fov; % Clutter is equally likely anywhere
+
 %% Define targets
 
 % Simple: line of targets heading straight at sensor
@@ -59,8 +59,8 @@ n_tgt = 1;  % Start with a single target
 spacing = 4; 
 v_tgt = [1, 0];
 tgt_e = zeros(n_tgt, 1);
-tgt_n = (35:spacing:71)';
-map = [tgt_n tgt_e ones(n_tgt, 1) * pd0];
+tgt_n = linspace(75, 35, n_tgt);
+map = [tgt_n tgt_e ones(n_tgt, 1) * model.pd1];
 
 % Plot map
 map_fig = figure;
@@ -127,7 +127,7 @@ for k = 2:sim_steps
     measurement.H = H;
     measurement.R = R;
 
-    [states{k}, Xhat, lambda(k)] = phd_filter(states{k-1}, measurement, model, params);
+    [states{k}, Xhat, lambda(k)] = cphd_filter(states{k-1}, measurement, model, params);
     %[v_k_obs, N_in_k, ~] = phd_filter(v{k-1}, N_in, F, Q, ps, pd, gamma, obs{k}', H, R, kappa, U, T, Jmax, w_min);
 
     %% Plots
