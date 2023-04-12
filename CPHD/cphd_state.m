@@ -12,6 +12,20 @@ classdef cphd_state
     end
 
     methods
-
+        function obj = cphd_state(v, N0, N1, rho)
+            if nargin == 4                
+                obj.v = v;
+                obj.N0 = N0;
+                obj.N1 = N1;
+                obj.rho = rho;
+            elseif nargin == 0
+                obj.v = GMRFS();
+                obj.N0 = 0;
+                obj.N1 = 0;
+                obj.rho = [];
+            else
+                error('Invalid number of arguments')
+            end
+        end
     end
 end

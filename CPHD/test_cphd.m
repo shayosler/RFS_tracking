@@ -10,7 +10,7 @@ rng(seed);
 
 %% Filtering parameters
 params = cphd_params();
-params.Nmax = 1000;
+params.Nmax = 32;
 params.U = 4;
 params.T = 1e-5;
 params.Jmax = 100;
@@ -32,7 +32,7 @@ model.ps1 = 0.9;  % Probability of target survival
 
 % Target birth model
 bm = load('../models/birth_model_100.mat');
-birth_rate = 1.0; % Expected rate of new births
+birth_rate = 0.01; % Expected rate of new births
 model.gamma1 = birth_rate .* bm.gamma;
 model.rho_gamma1 = poisspdf(0:1:params.Nmax, birth_rate);
 
@@ -48,32 +48,40 @@ H = eye(n_states);
 
 % clutter: poisson 
 A_fov = (pi * range^2) * (fov / 360);
-lambda = 2; % Expected number of clutter returns
-model.Ngamma0 = lambda; % I don't think that Ngamma0 (mean birth rate) is the same thing as clutter rate
-kappa = 1 / A_fov; % Clutter is equally likely anywhere
+lambda_true = 2; % Expected number of clutter returns
+model.Ngamma0 = lambda_true; % I don't think that Ngamma0 (mean birth rate) is the same thing as clutter rate
+model.kappa = 1 / A_fov; % Clutter is equally likely anywhere
 
-%% Define targets
+%% Define environment
+% Bounds for northing and easting
+min_n = 0;
+max_n = 100;
+min_e = -20;
+max_e = 100;
+northings = min_n:.1:max_n;
+eastings = min_e-10:.1:max_e;
 
-% Simple: line of targets heading straight at sensor
-n_tgt = 1;  % Start with a single target
+% Simple targets: line of targets heading straight at sensor
+n_tgt = 3;  % Start with a single target
 spacing = 4; 
-v_tgt = [1, 0];
-tgt_e = zeros(n_tgt, 1);
-tgt_n = linspace(75, 35, n_tgt);
-map = [tgt_n tgt_e ones(n_tgt, 1) * model.pd1];
+v_tgt = repmat([0, 0.5], n_tgt, 1);
+tgt_e = zeros(n_tgt, 1) + min_e;
+tgt_n = linspace(35, 20, n_tgt)';
+map = [tgt_n tgt_e ones(n_tgt, 1)];% * model.pd1]; %FIXME: testing perfect detection
 
 % Plot map
 map_fig = figure;
-plot(map(:, 2), map(:, 1), 'b*')
+h_map = plot(map(:, 2), map(:, 1), 'b*');
 hold on
 title 'Target Locations'
 set(gca, 'Fontsize', 18)
 axis equal;
 axis([-30, 30, 0, 100])
+delete(h_map)
 
 %% Simulate
-sim_dt = 0.1;
-t_total = 400;
+sim_dt = 1;
+t_total = 100;
 t = 0:sim_dt:t_total;
 sim_steps = numel(t);
 
@@ -82,16 +90,17 @@ x = zeros(sim_steps, 12);
 obs = cell(sim_steps, 1);
 true_obs = cell(sim_steps, 1);
 lambda = zeros(sim_steps, 1);
-states = cell(sim_steps, 1);
-states{1} = cphd_state();
-states{1}.v = GMRFS();
-states{1}.N0 = 0;
-states{1}.N1 = 0;
-states{1}.rho = ones(params.Nmax + 1) ./ params.Nmax + 1; % initial cardinality distribution is unknown
+states(sim_steps, 1) = cphd_state;
+states(1).v = GMRFS();
+states(1).N0 = 0;
+states(1).N1 = 0;
+states(1).rho = ones(params.Nmax + 1, 1) ./ (params.Nmax + 1); % initial cardinality distribution is unknown
 j = 1;
 pass = 1;
 
 v_fig = figure;
+n_fig = figure;
+rho_fig = figure;
 for k = 2:sim_steps
     tk = t(j);
     j = j+1;
@@ -103,7 +112,8 @@ for k = 2:sim_steps
     psi = x(k, 6);
 
     % Get relative positions of simuated observations
-    [r, b, r_true, b_true] = simulate_sonar_obs([n, e, psi], map, range, fov, lambda, sigma_rb);
+    [r, b, r_true, b_true] = simulate_sonar_obs([n, e, psi], map, range, fov, lambda_true, sigma_rb);
+    map(:, 1:2) = map(:, 1:2) + v_tgt .* sim_dt;
 
     % Convert to absolute coordinates
     b = b + psi; 
@@ -111,7 +121,7 @@ for k = 2:sim_steps
     e_obs = e + r .* sind(b);
     b_true = b_true + psi;
     n_obs_true = n + r_true .* cosd(b_true);
-    e_obs_true = e + r .* sind(b_true);
+    e_obs_true = e + r_true .* sind(b_true);
 
     % Store the observations
     obs{k} = zeros(length(r), 2);
@@ -127,51 +137,80 @@ for k = 2:sim_steps
     measurement.H = H;
     measurement.R = R;
 
-    [states{k}, Xhat, lambda(k)] = cphd_filter(states{k-1}, measurement, model, params);
+    [states(k), Xhat, lambda(k)] = cphd_filter(states(k-1), measurement, model, params);
     %[v_k_obs, N_in_k, ~] = phd_filter(v{k-1}, N_in, F, Q, ps, pd, gamma, obs{k}', H, R, kappa, U, T, Jmax, w_min);
 
     %% Plots
-    if true
+    if mod(k, 10) == 0
+        handles = [];
+
+        % Current target locations
+        figure(map_fig);
+        h_map = plot(map(:, 2), map(:, 1), 'b*');
+        handles = [handles h_map];
+
         % observations
         %figure(map_fig);
-        %h_obs = [];
         %h_obs = plot(all_obs(:, 2), all_obs(:, 1), 'r.');
-        for kk = 1:k
+        figure(map_fig);
+        h_obs = [];
+        for kk = 1:k-1
             obs_k = obs{kk};
             if ~isempty(obs_k)
                 h_obs = [h_obs plot(obs_k(:, 2), obs_k(:, 1), '.')];
             end
         end
+        h_obs = [h_obs plot(obs{k}(:, 2), obs{k}(:, 1), 'o')];
+        handles = [handles h_obs];
 
         % Plot estimates
         figure(map_fig);
-        h_tracker = plot(Xhat(2, :), Xhat(1, :), 'go','LineWidth', 2, 'MarkerSize', 6);
-        title(['Map and Observations After Pass ' num2str(pass)])
-        legend('Targets', 'Measurements', 'Tracked Objects')
-        set(gca, 'Fontsize', 18)
-        axis equal;
-        axis([-30, 30, 0, 100])
+        if ~isempty(Xhat)
+            h_tracker = plot(Xhat(2, :), Xhat(1, :), 'go','LineWidth', 2, 'MarkerSize', 6);
+            title(['Map and Observations After t = ' num2str(k)])
+            legend('Targets', 'Measurements', 'Tracked Objects')
+            set(gca, 'Fontsize', 18)
+            axis equal;
+            axis([-30, 30, 0, 100])
+            handles = [handles h_tracker];
+        end
         
-
         % Plot current fov
         figure(map_fig);
-        h_fov = plot_fov([n, e], psi, range, fov, 'b');
+        h_fov = plot_sonar_fov([n, e], psi, range, fov, 'b');
+        handles = [handles h_fov];
+
+        % Plot estimated number of targets/clutter
+        figure(n_fig)
+        N0 = [states(1:k).N0];
+        N1 = [states(1:k).N1];
+        plot(N0)
+        hold on
+        plot(N1)
+        title 'Cardinality'
+        xlabel 'Time step'
+        legend('Clutter Generators', 'Targets')
+
+        % Cardinality distribution
+        figure(rho_fig);
+        bar(0:length(states(k).rho) - 1, states(k).rho);
+        title 'Hybrid Cardinality Distribution'
+        xlabel 'N'
+        ylabel '\rho'
         
         % Plot current intensity
-        figure(v_fig);
-        h_v = plotgmphd(v{k}, northings, eastings);
-        title(['PHD Intensity After Pass ' num2str(pass)])
-        set(gca, 'Fontsize', 18)
-        axis equal;
-        axis([-30, 30, 0, 100])
-        
-        colorbar
+        %figure(v_fig);
+        %h_v = plotgmphd(states(k).v, northings, eastings);
+        %handles = [handles h_v];
+        %title(['PHD Intensity After t = ' num2str(k)])
+        %set(gca, 'Fontsize', 18)
+        %axis equal;
+        %axis([-30, 30, 0, 100])
+        %colorbar
 
         % Clear plotted stuff
-        delete(h_v);
-        delete(h_fov);
-        delete(h_tracker);
-        delete(h_obs);
+        delete(handles);
+        clf(n_fig);
     end
 
 end
