@@ -22,7 +22,7 @@ model = cphd_model();
 
 % Target dynamics
 model.F = eye(n_states);
-model.Q = 0.1 * eye(n_states);
+model.Q = .5 * eye(n_states);
 
 % Detection and survival probabilities
 model.pd0 = 0.6;  % Probability of detecting a "clutter" object
@@ -48,8 +48,8 @@ H = eye(n_states);
 
 % clutter: poisson 
 A_fov = (pi * range^2) * (fov / 360);
-lambda_true = 2; % Expected number of clutter returns
-model.Ngamma0 = lambda_true; % I don't think that Ngamma0 (mean birth rate) is the same thing as clutter rate
+lambda_true = 0; %2; % Expected number of clutter returns
+model.Ngamma0 = 0.5; %lambda_true; % I don't think that Ngamma0 (mean birth rate) is the same thing as clutter rate
 model.kappa = 1 / A_fov; % Clutter is equally likely anywhere
 
 %% Define environment
@@ -199,14 +199,14 @@ for k = 2:sim_steps
         ylabel '\rho'
         
         % Plot current intensity
-        %figure(v_fig);
-        %h_v = plotgmphd(states(k).v, northings, eastings);
-        %handles = [handles h_v];
-        %title(['PHD Intensity After t = ' num2str(k)])
-        %set(gca, 'Fontsize', 18)
-        %axis equal;
-        %axis([-30, 30, 0, 100])
-        %colorbar
+        figure(v_fig);
+        h_v = plotgmphd(states(k).v, northings, eastings);
+        handles = [handles h_v];
+        title(['PHD Intensity After t = ' num2str(k)])
+        set(gca, 'Fontsize', 18)
+        axis equal;
+        axis([-30, 30, 0, 100])
+        colorbar
 
         % Clear plotted stuff
         delete(handles);
