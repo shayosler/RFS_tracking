@@ -32,6 +32,7 @@ w = [];
 m = [];
 P = [];
 l = 0;
+dim = size(v.m, 1);
 while any(I)
     l = l + 1;
     L = [];
@@ -49,7 +50,7 @@ while any(I)
 
     % Merge components
     wl = sum(v.w(L));
-    ml = (1/wl) .* sum(repmat(v.w(L)', 2, 1) .* v.m(:, L), 2);
+    ml = (1/wl) .* sum(repmat(v.w(L)', dim, 1) .* v.m(:, L), 2);
     Pl = zeros(size(v.P(:, :, 1)));
     for i = L
         Pl = Pl + v.w(i)*(v.P(:, :, i) + (ml - v.m(:, i))*(ml - v.m(:, i))');

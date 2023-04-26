@@ -26,9 +26,9 @@ model.Q = .5 * eye(n_states);
 
 % Detection and survival probabilities
 model.pd0 = 0.6;  % Probability of detecting a "clutter" object
-model.pd1 = 0.6;  % Probability of detecting a target
+model.pd1 = 1.0;  % Probability of detecting a target
 model.ps0 = 0.1;  % Probability of clutter survival
-model.ps1 = 0.9;  % Probability of target survival
+model.ps1 = 0.99;  % Probability of target survival
 
 % Target birth model
 bm = load('../models/birth_model_100.mat');
@@ -41,15 +41,18 @@ fov = 90;
 range = 40;
 sigma_rb = [.25 0;   % range
             0  10];   % bearing
+sigma_rb = [0.001 0;
+            0 0.001];
 % TODO: R should be calculated for each measurement
 R = sigma_rb;
 R(2, 2) = range * sind(sigma_rb(2, 2));
+
 H = eye(n_states);
 
 % clutter: poisson 
 A_fov = (pi * range^2) * (fov / 360);
 lambda_true = 0; %2; % Expected number of clutter returns
-model.Ngamma0 = 0.5; %lambda_true; % I don't think that Ngamma0 (mean birth rate) is the same thing as clutter rate
+model.Ngamma0 = 0.5; % Mean clutter birth rate
 model.kappa = 1 / A_fov; % Clutter is equally likely anywhere
 
 %% Define environment
@@ -62,12 +65,14 @@ northings = min_n:.1:max_n;
 eastings = min_e-10:.1:max_e;
 
 % Simple targets: line of targets heading straight at sensor
-n_tgt = 3;  % Start with a single target
+n_tgt = 10;  % Start with a single target
 spacing = 4; 
-v_tgt = repmat([0, 0.5], n_tgt, 1);
-tgt_e = zeros(n_tgt, 1) + min_e;
-tgt_n = linspace(35, 20, n_tgt)';
-map = [tgt_n tgt_e ones(n_tgt, 1)];% * model.pd1]; %FIXME: testing perfect detection
+v_n = 0;
+v_e = 0;
+v_tgt = repmat([v_n, v_e], n_tgt, 1);
+tgt_e = zeros(n_tgt, 1); % + min_e;
+tgt_n = linspace(35, 10, n_tgt)';
+map = [tgt_n tgt_e ones(n_tgt, 1) * model.pd1]; %FIXME: testing perfect detection
 
 % Plot map
 map_fig = figure;
@@ -87,9 +92,11 @@ sim_steps = numel(t);
 
 % Initial conditions
 x = zeros(sim_steps, 12);
+Xhat = cell(sim_steps, 1);
 obs = cell(sim_steps, 1);
 true_obs = cell(sim_steps, 1);
 lambda = zeros(sim_steps, 1);
+lambda(1) = 1;
 states(sim_steps, 1) = cphd_state;
 states(1).v = GMRFS();
 states(1).N0 = 0;
@@ -137,11 +144,15 @@ for k = 2:sim_steps
     measurement.H = H;
     measurement.R = R;
 
-    [states(k), Xhat, lambda(k)] = cphd_filter(states(k-1), measurement, model, params);
+    % Update kappa
+    % TODO: I think kappa is supposed to represent "clutter density"
+    % which we'll assume is uniform
+    model.kappa = lambda(k - 1) / A_fov;
+    [states(k), Xhat{k}, lambda(k)] = cphd_filter(states(k-1), measurement, model, params);
     %[v_k_obs, N_in_k, ~] = phd_filter(v{k-1}, N_in, F, Q, ps, pd, gamma, obs{k}', H, R, kappa, U, T, Jmax, w_min);
 
     %% Plots
-    if mod(k, 10) == 0
+    if mod(k, 100) == 0
         handles = [];
 
         % Current target locations
@@ -150,11 +161,11 @@ for k = 2:sim_steps
         handles = [handles h_map];
 
         % observations
-        %figure(map_fig);
-        %h_obs = plot(all_obs(:, 2), all_obs(:, 1), 'r.');
         figure(map_fig);
         h_obs = [];
-        for kk = 1:k-1
+        n_trackers = zeros(k, 1);
+        for kk = 1:k
+            n_trackers(kk) = size(Xhat{kk}, 2);
             obs_k = obs{kk};
             if ~isempty(obs_k)
                 h_obs = [h_obs plot(obs_k(:, 2), obs_k(:, 1), '.')];
@@ -165,8 +176,9 @@ for k = 2:sim_steps
 
         % Plot estimates
         figure(map_fig);
-        if ~isempty(Xhat)
-            h_tracker = plot(Xhat(2, :), Xhat(1, :), 'go','LineWidth', 2, 'MarkerSize', 6);
+        trackers = Xhat{k};
+        if ~isempty(trackers)
+            h_tracker = plot(trackers(2, :), trackers(1, :), 'go', 'LineWidth', 2, 'MarkerSize', 6);
             title(['Map and Observations After t = ' num2str(k)])
             legend('Targets', 'Measurements', 'Tracked Objects')
             set(gca, 'Fontsize', 18)
@@ -184,16 +196,19 @@ for k = 2:sim_steps
         figure(n_fig)
         N0 = [states(1:k).N0];
         N1 = [states(1:k).N1];
-        plot(N0)
+        plot(N0, 'LineWidth', 2)
         hold on
-        plot(N1)
+        plot(N1, 'LineWidth', 2)
+        plot(n_trackers, 'LineWidth', 2);
         title 'Cardinality'
         xlabel 'Time step'
-        legend('Clutter Generators', 'Targets')
+        legend('Clutter Generators', 'Targets', 'Tracked Objects')
+        set(gca, 'Fontsize', 18)
 
         % Cardinality distribution
         figure(rho_fig);
         bar(0:length(states(k).rho) - 1, states(k).rho);
+        set(gca, 'Fontsize', 18)
         title 'Hybrid Cardinality Distribution'
         xlabel 'N'
         ylabel '\rho'
@@ -208,9 +223,11 @@ for k = 2:sim_steps
         axis([-30, 30, 0, 100])
         colorbar
 
+
         % Clear plotted stuff
         delete(handles);
         clf(n_fig);
+        break;
     end
 
 end

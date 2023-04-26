@@ -95,8 +95,9 @@ for n = 1:length(rho)
         binom_sum = 0;
         for l = j:length(rho) - 1
             binom_sum = binom_sum + nchoosek(l, j) * rho(l + 1) * (1-phi)^(l-j) * phi^j;
+            %binom_sum = binom_sum + bignchoosek(l, j) * rho(l + 1) * (1-phi)^(l-j) * phi^j;
         end
-        rho_kk1_n = rho_kk1_n + rho_gamma1(ndd - j + 1) * binom_sum;
+        rho_kk1_n = rho_kk1_n + rho_gamma1(ndd - j + 1) * binom_sum;    % FIXME: this should be rho_gamma for the hybrid distribution, not just for targets
     end
     rho_kk1(n) = rho_kk1_n;
 end
@@ -131,30 +132,30 @@ for j = 1:Jkk1
     P_kk(:, :, j) = (I - Kj * H) * P_kk1j * (I - Kj * H)' + Kj * R * Kj';
 end
 
-% Phi_kk1 is 1 - ratio of expected number of detected objects to estimated
-% total number of objects
+% Phi_kk1 is 1 - ratio of expected number of detected objects (targets + clutter)
+% to estimated  total number of objects. ie its the expected fraction of 
+% total objects that are "missed" by the observation
 sum_w_kk1 = 0;
 for l = 1:Jkk1
     sum_w_kk1 = sum_w_kk1 + v_kk1.w(l);
 end
 phi_kk1 = 1 - (pd1 * sum_w_kk1 + pd0 * N0_kk1) / (sum_w_kk1 + N0_kk1);
+% TODO: this (below) is how the calculation is done in vo's code, is this equivalent?
+%phi_kk1 = ((1 - pd1) * sum_w_kk1 + (1 - pd0) * N0_kk1) / (sum_w_kk1 + N0_kk1); 
 
-% Update cardinality distribution
-
-% I'm pretty sure the denominator of this equation in the paper is
-% just a normalizing term
 rho_k = zeros(size(rho_kk1));
 psi0_k = zeros(size(rho_kk1));
 psi1_k = zeros(size(rho_kk1));
-for ndd = 1:length(rho_kk1)
-    psi0_k(ndd) = psi_ddot(0, phi_kk1, Jz, ndd);
-    psi1_k(ndd) = psi_ddot(1, phi_kk1, Jz, ndd);
-    if ndd < Jz
-        rho_k(ndd) = 0;
-    else
-        rho_k(ndd) = rho_kk1(ndd) * psi_ddot(0, phi_kk1, Jz, ndd);
-    end
+for n = 1:length(rho_kk1)
+    ndd = n - 1;
+    psi0_k(n) = psi_ddot(0, phi_kk1, Jz, ndd);
+    psi1_k(n) = psi_ddot(1, phi_kk1, Jz, ndd);
 end
+
+% Update cardinality distribution
+% I'm pretty sure the denominator of this equation in the paper is
+% just a normalizing term
+rho_k = rho_kk1 .* psi0_k;
 if sum(rho_k) ~= 0
     rho_k = rho_k ./ sum(rho_k);
 end
@@ -168,7 +169,6 @@ for jz = 1:Jz
     z = Z(:, jz);
 
     % Clutter likelihood
-    % TODO: per measurement clutter probabilities?
     % TODO: non-uniform clutter probabilities
     kappaz = kappa;
 
@@ -221,7 +221,7 @@ end
 psi_rho_weights = psi_rho_ratio / (sum_w_kk1 + N0_kk1);
 
 % qd = 1-pd
-v_k_unpruned = (1 - pd1) * psi_rho_weights .*  v_kk1 + sum_vD; % FIXME: Total weights are exactly 26x too high
+v_k_unpruned = (1 - pd1) * psi_rho_weights .*  v_kk1 + sum_vD;
 N0_k = N0_kk1 * ((1 - pd0) * psi_rho_weights + sum_Nk); 
 
 %% Prune
