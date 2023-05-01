@@ -101,8 +101,8 @@ for n = 1:length(rho)
     end
     rho_kk1(n) = rho_kk1_n;
 end
-% TODO: Does this require normalization? Seems to always sum to 1 so far, 
-% but if it ever doesn't could that cause instability?
+% normalize
+rho_kk1 = rho_kk1 ./ sum(rho_kk1);
 
 %% Update
 
