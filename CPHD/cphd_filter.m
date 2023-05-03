@@ -81,30 +81,6 @@ else
     phi = (ps1 * sum(v.w) + ps0 * N0) / (sum(v.w) + N0);
 end
 
-% TODO: I think this should work, double check for off by one errors
-% rho(n) = P(N==n-1)
-% rho_kk1 = zeros(size(rho));
-% for n = 1:length(rho)
-%     ndd = n - 1;
-%     rho_kk1_n = 0;
-%     for j = 0:ndd
-%         if ndd - j + 1 > length(rho_gamma1)
-%             continue;
-%         end
-% 
-%         binom_sum = 0;
-%         for l = j:length(rho) - 1
-%             binom_sum = binom_sum + nchoosek(l, j) * rho(l + 1) * (1-phi)^(l-j) * phi^j;
-%             %binom_sum = binom_sum + bignchoosek(l, j) * rho(l + 1) * (1-phi)^(l-j) * phi^j;
-%         end
-%         rho_kk1_n = rho_kk1_n + rho_gamma1(ndd - j + 1) * binom_sum;    % FIXME: this should be rho_gamma for the hybrid distribution, not just for targets
-%     end
-%     rho_kk1(n) = rho_kk1_n;
-% end
-% % normalize
-% rho_kk1 = rho_kk1 ./ sum(rho_kk1);
-% rho_kk1_so = rho_kk1;
-
 % Variables as named by vo:
 w_update = v.w;
 Nc_update = N0;
@@ -133,10 +109,6 @@ for j=0:filter.N_max
     terms= zeros(filter.N_max+1,1);
     for ell=j:filter.N_max
         idxl= ell+1;
-
-        % TODO: the original (below) fails and produces NaN when j == 0 and
-        % survival_factor = 0
-        %terms(idxl) = exp(sum(log(1:ell))-sum(log(1:j))-sum(log(1:ell-j))+j*log(survival_factor)+(ell-j)*log(1-survival_factor))*cdn_update(idxl);
         terms(idxl) = exp(sum(log(1:ell))-sum(log(1:j))-sum(log(1:ell-j))+j*log_survival_factor+(ell-j)*log(1-survival_factor))*cdn_update(idxl);
     end
     survive_cdn_predict(idxj) = sum(terms);
@@ -154,12 +126,8 @@ for n=0:filter.N_max
     end
     cdn_predict(idxn) = sum(terms);
 end
-Nc_predict = vo_model.lambda_cb + vo_model.clutter_P_S * Nc_update;
-
 %normalize predicted cardinality distribution
 cdn_predict = cdn_predict/sum(cdn_predict);
-rho_kk1_vo = cdn_predict;
-
 rho_kk1 = cdn_predict;
 
 %% Update
@@ -198,8 +166,6 @@ for l = 1:Jkk1
     sum_w_kk1 = sum_w_kk1 + v_kk1.w(l);
 end
 phi_kk1 = 1 - (pd1 * sum_w_kk1 + pd0 * N0_kk1) / (sum_w_kk1 + N0_kk1);
-% TODO: this (below) is how the calculation is done in vo's code, is this equivalent?
-%phi_kk1 = ((1 - pd1) * sum_w_kk1 + (1 - pd0) * N0_kk1) / (sum_w_kk1 + N0_kk1); 
 
 rho_k = zeros(size(rho_kk1));
 psi0_k = zeros(size(rho_kk1));
@@ -303,7 +269,10 @@ state_k.rho = rho_k;
 lambda = N0_k * pd0;
 
 %% Extract a state estimate from the RFS
-% TODO: only take the N1 highest components?
+% TODO: Take the round(N1) highest components? How then to handle
+% components with a rounded weight > 1, e.g. if w = 2 then that
+% theoretically means that component represents 2 tracked objects (ie two
+% objects at the same location)
 Xhat = [];
 for i = 1:v_k.J
     if v_k.w(i) > w_min
