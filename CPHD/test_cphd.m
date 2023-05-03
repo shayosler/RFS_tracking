@@ -144,10 +144,7 @@ for k = 2:sim_steps
     measurement.H = H;
     measurement.R = R;
 
-    % Update kappa
-    % TODO: I think kappa is supposed to represent "clutter density"
-    % which we'll assume is uniform
-    model.kappa = lambda(k - 1) / A_fov;
+    % Update estimates
     [states(k), Xhat{k}, lambda(k)] = cphd_filter(states(k-1), measurement, model, params);
     %[v_k_obs, N_in_k, ~] = phd_filter(v{k-1}, N_in, F, Q, ps, pd, gamma, obs{k}', H, R, kappa, U, T, Jmax, w_min);
 

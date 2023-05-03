@@ -37,7 +37,7 @@ end
 ps0 = model.ps0;
 ps1 = model.ps1;
 pd0 = model.pd0;
-pd1 = model.pd0;
+pd1 = model.pd1;
 Q = model.Q;
 F = model.F;
 kappa = model.kappa;
@@ -67,7 +67,7 @@ for j = 1:Jk
 end
 
 % Full prediction is sum of births and propagation
-v_kk1 = GMRFS(m_kk1, P_kk1, ps1.*v.w) + gamma1;
+v_kk1 = gamma1 + GMRFS(m_kk1, P_kk1, ps1.*v.w); %GMRFS(m_kk1, P_kk1, ps1.*v.w) + gamma1; % Order swapped to make comparison to vo easier
 P_kk1 = v_kk1.P;
 m_kk1 = v_kk1.m;
 
@@ -83,26 +83,84 @@ end
 
 % TODO: I think this should work, double check for off by one errors
 % rho(n) = P(N==n-1)
-rho_kk1 = zeros(size(rho));
-for n = 1:length(rho)
-    ndd = n - 1;
-    rho_kk1_n = 0;
-    for j = 0:ndd
-        if ndd - j + 1 > length(rho_gamma1)
-            continue;
-        end
+% rho_kk1 = zeros(size(rho));
+% for n = 1:length(rho)
+%     ndd = n - 1;
+%     rho_kk1_n = 0;
+%     for j = 0:ndd
+%         if ndd - j + 1 > length(rho_gamma1)
+%             continue;
+%         end
+% 
+%         binom_sum = 0;
+%         for l = j:length(rho) - 1
+%             binom_sum = binom_sum + nchoosek(l, j) * rho(l + 1) * (1-phi)^(l-j) * phi^j;
+%             %binom_sum = binom_sum + bignchoosek(l, j) * rho(l + 1) * (1-phi)^(l-j) * phi^j;
+%         end
+%         rho_kk1_n = rho_kk1_n + rho_gamma1(ndd - j + 1) * binom_sum;    % FIXME: this should be rho_gamma for the hybrid distribution, not just for targets
+%     end
+%     rho_kk1(n) = rho_kk1_n;
+% end
+% % normalize
+% rho_kk1 = rho_kk1 ./ sum(rho_kk1);
+% rho_kk1_so = rho_kk1;
 
-        binom_sum = 0;
-        for l = j:length(rho) - 1
-            binom_sum = binom_sum + nchoosek(l, j) * rho(l + 1) * (1-phi)^(l-j) * phi^j;
-            %binom_sum = binom_sum + bignchoosek(l, j) * rho(l + 1) * (1-phi)^(l-j) * phi^j;
-        end
-        rho_kk1_n = rho_kk1_n + rho_gamma1(ndd - j + 1) * binom_sum;    % FIXME: this should be rho_gamma for the hybrid distribution, not just for targets
-    end
-    rho_kk1(n) = rho_kk1_n;
+% Variables as named by vo:
+w_update = v.w;
+Nc_update = N0;
+vo_model.P_S = ps1;
+vo_model.clutter_P_S = ps0;
+filter.N_max = length(rho) - 1;
+vo_model.w_birth = model.gamma1.w;
+vo_model.lambda_cb = model.Ngamma0;
+cdn_update = rho;
+
+%---cardinality prediction
+%surviving cardinality distribution
+survive_cdn_predict = zeros(filter.N_max+1,1);
+survival_factor= sum(w_update)/(sum(w_update)+Nc_update)*vo_model.P_S + Nc_update/(sum(w_update)+Nc_update)*vo_model.clutter_P_S;
+if isnan(survival_factor), survival_factor=0; end %catch the degernerate zero case
+
+% TODO: this if block added in to help prevent NaNs - so
+if survival_factor == 0
+    log_survival_factor = log(eps(0));
+else
+    log_survival_factor = log(survival_factor);
 end
-% normalize
-rho_kk1 = rho_kk1 ./ sum(rho_kk1);
+
+for j=0:filter.N_max
+    idxj=j+1;
+    terms= zeros(filter.N_max+1,1);
+    for ell=j:filter.N_max
+        idxl= ell+1;
+
+        % TODO: the original (below) fails and produces NaN when j == 0 and
+        % survival_factor = 0
+        %terms(idxl) = exp(sum(log(1:ell))-sum(log(1:j))-sum(log(1:ell-j))+j*log(survival_factor)+(ell-j)*log(1-survival_factor))*cdn_update(idxl);
+        terms(idxl) = exp(sum(log(1:ell))-sum(log(1:j))-sum(log(1:ell-j))+j*log_survival_factor+(ell-j)*log(1-survival_factor))*cdn_update(idxl);
+    end
+    survive_cdn_predict(idxj) = sum(terms);
+end
+
+%predicted cardinality= convolution of birth and surviving cardinality distribution
+cdn_predict = zeros(filter.N_max+1,1);
+lambda_b = sum(vo_model.w_birth)+vo_model.lambda_cb;
+for n=0:filter.N_max
+    idxn=n+1;
+    terms= zeros(filter.N_max+1,1);
+    for j=0:n
+        idxj= j+1;
+        terms(idxj)= exp(-sum(lambda_b)+(n-j)*log(lambda_b)-sum(log(1:n-j)))*survive_cdn_predict(idxj);
+    end
+    cdn_predict(idxn) = sum(terms);
+end
+Nc_predict = vo_model.lambda_cb + vo_model.clutter_P_S * Nc_update;
+
+%normalize predicted cardinality distribution
+cdn_predict = cdn_predict/sum(cdn_predict);
+rho_kk1_vo = cdn_predict;
+
+rho_kk1 = cdn_predict;
 
 %% Update
 
@@ -155,7 +213,15 @@ end
 % Update cardinality distribution
 % I'm pretty sure the denominator of this equation in the paper is
 % just a normalizing term
-rho_k = rho_kk1 .* psi0_k;
+denom = sum(rho_kk1 .* psi0_k);
+for n = 1:length(rho_kk1)
+    ndd = n - 1;
+    if ndd < Jz
+        rho_k(n) = 0;
+    else
+        rho_k(n) = (rho_kk1(n) * psi0_k(n)) / denom;
+    end
+end
 if sum(rho_k) ~= 0
     rho_k = rho_k ./ sum(rho_k);
 end
@@ -187,18 +253,17 @@ for jz = 1:Jz
 
     sum_Nk = sum_Nk + (pd0 * kappaz) / weight_denom;
 
+    % Update each component of the RFS based on the current measurement
     m_kkz = zeros(size(m_kk1));
     wkz = zeros(Jkk1, 1);
     for j = 1:Jkk1
         Kj = K(:, :, j);
         m_kk1j = m_kk1(:, j);
 
-        % Updated mean based on this measurement
+        % Kalman update mean based on this measurement
         m_kkz(:, j) = m_kk1j + Kj * (z - H*m_kk1j);
        
-        % likelihood of z
-        % TODO: should the q(z) calculation be using the predicted m_ and 
-        % P_ or the updated ones?
+        % likelihood of z given current RFS component
         P_kk1j = P_kk1(:, :, j);
         qz = mvnpdf(z, H*m_kk1j, R + H*P_kk1j*H');
 
@@ -234,6 +299,7 @@ state_k.N1 = sum(v_k.w);
 state_k.v = v_k;
 state_k.rho = rho_k;
 
+% Estimated clutter rate
 lambda = N0_k * pd0;
 
 %% Extract a state estimate from the RFS
@@ -253,7 +319,12 @@ end
 function P = permnj(n, j)
 % P = permnj(n, j) Compute a permutation coefficient
 % P = n! / (n -j)!
-P = nchoosek(n, j) * factorial(j);
+
+% "naive" implementation
+%P = nchoosek(n, j) * factorial(j);
+
+% Implementation from vo
+P = exp(sum(log(1:n))-sum(log(1:n-j)));
 end
 
 function out = psi_ddot(u, phi, Jz, ndd)
@@ -270,5 +341,8 @@ if ndd < Jz + u
     return;
 end
 
-out = permnj(ndd, Zk_u) * (phi ^ (ndd - Zk_u));
+% Calculate using approximation of permutation coefficient and
+% log likelihoods to avoid numerical issues
+out = exp(sum(log(1:ndd))-sum(log(1:ndd - Zk_u))+(ndd - Zk_u)*log(phi));
+
 end
