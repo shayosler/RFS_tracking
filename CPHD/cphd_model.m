@@ -10,8 +10,7 @@ classdef cphd_model
         pd0         % Clutter detection probability
         pd1         % Target detection probability
         Ngamma0     % Mean number of clutter births
-        gamma1      % Target birth model
-        rho_gamma1  % Target birth model cardinality distribution
+        gamma1      % Target birth model, filter assumes birth process is poisson
         kappa       % Spatial likelihood of clutter
     end
 

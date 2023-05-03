@@ -30,10 +30,6 @@ end
 % Extract model data
 Ngamma0 = model.Ngamma0;
 gamma1 = model.gamma1;
-rho_gamma1 = model.rho_gamma1;
-if ~isvector(rho_gamma1)
-    error 'model.rho_gamma1 must by a 1xN or Nx1 vector'
-end
 ps0 = model.ps0;
 ps1 = model.ps1;
 pd0 = model.pd0;

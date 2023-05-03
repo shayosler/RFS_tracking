@@ -34,7 +34,6 @@ model.ps1 = 0.99;  % Probability of target survival
 bm = load('../models/birth_model_100.mat');
 birth_rate = 0.01; % Expected rate of new births
 model.gamma1 = birth_rate .* bm.gamma;
-model.rho_gamma1 = poisspdf(0:1:params.Nmax, birth_rate);
 
 % Sensor/measurement model
 fov = 90;
@@ -72,7 +71,7 @@ v_e = 0;
 v_tgt = repmat([v_n, v_e], n_tgt, 1);
 tgt_e = zeros(n_tgt, 1); % + min_e;
 tgt_n = linspace(35, 10, n_tgt)';
-map = [tgt_n tgt_e ones(n_tgt, 1) * model.pd1]; %FIXME: testing perfect detection
+map = [tgt_n tgt_e ones(n_tgt, 1) * model.pd1]; 
 
 % Plot map
 map_fig = figure;
@@ -161,8 +160,10 @@ for k = 2:sim_steps
         figure(map_fig);
         h_obs = [];
         n_trackers = zeros(k, 1);
+        n_true = zeros(k, 1);
         for kk = 1:k
             n_trackers(kk) = size(Xhat{kk}, 2);
+            n_true(kk) = size(true_obs{k}, 1);
             obs_k = obs{kk};
             if ~isempty(obs_k)
                 h_obs = [h_obs plot(obs_k(:, 2), obs_k(:, 1), '.')];
@@ -197,16 +198,17 @@ for k = 2:sim_steps
         hold on
         plot(N1, 'LineWidth', 2)
         plot(n_trackers, 'LineWidth', 2);
+        plot(n_true, '--', 'LineWidth', 2)
         title 'Cardinality'
         xlabel 'Time step'
-        legend('Clutter Generators', 'Targets', 'Tracked Objects')
+        legend('Clutter Generators', 'Targets', 'Tracked Objects', 'True Number of Targets')
         set(gca, 'Fontsize', 18)
 
         % Cardinality distribution
         figure(rho_fig);
         bar(0:length(states(k).rho) - 1, states(k).rho);
         set(gca, 'Fontsize', 18)
-        title 'Hybrid Cardinality Distribution'
+        title(['Hybrid Cardinality Distribution after t = ' num2str(k)])
         xlabel 'N'
         ylabel '\rho'
         
