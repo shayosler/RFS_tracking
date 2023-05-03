@@ -30,14 +30,17 @@ end
 n_obj = size(map, 1);
 offset = map(:, 1:2) - repmat([x(1) x(2)], [n_obj, 1]);
 r_true = sqrt(sum(offset.^2, 2));
+b_true = atan2d(offset(:, 2), offset(:, 1)) - x(3);
 
 % Determine which targets are within the field of view
 % and which ones are actually detected
-b_true = atan2d(offset(:, 2), offset(:, 1)) - x(3);
 in_fov = r_true < end_range & abs(b_true) < fov/2;
 detected = map(:, 3) > rand(n_obj, 1);
 r = r_true(in_fov & detected);
 b = b_true(in_fov & detected);
+r_true = r_true(in_fov);
+b_true = b_true(in_fov);
+
 
 % Corrupt observations
 noise = mvnrnd([0, 0], sigma, length(r));

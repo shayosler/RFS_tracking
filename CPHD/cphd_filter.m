@@ -270,10 +270,27 @@ lambda = N0_k * pd0;
 % theoretically means that component represents 2 tracked objects (ie two
 % objects at the same location)
 Xhat = [];
+% for i = 1:v_k.J
+%     if v_k.w(i) > w_min
+%         Xhat = [Xhat repmat(v_k.m(:, i), 1, round(v_k.w(i)))];
+%     end
+% end
+
+% Duplicate any components that represent more than 1 target
+% Remove any components that don't represent any targets
 for i = 1:v_k.J
-    if v_k.w(i) > w_min
-        Xhat = [Xhat repmat(v_k.m(:, i), 1, round(v_k.w(i)))];
+    n_tgts = round(v_k.w(i));
+
+    % Don't actually remove any?
+    if n_tgts < 1
+        n_tgts = 1;
     end
+    Xhat = [Xhat repmat(v_k.m(:, i), 1, n_tgts)];
+end
+
+% Take up to the rounded cardinality estimate targets
+if size(Xhat, 2) > round(state_k.N1)
+    Xhat = Xhat(:, 1:round(state_k.N1));
 end
 
 end

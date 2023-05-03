@@ -16,6 +16,47 @@ params.T = 1e-5;
 params.Jmax = 100;
 params.w_min = 0.5;
 
+%% True system
+sim_dt = 1;
+n_states = 4;  %[n ndot e edot]
+v_n = 0;
+v_e = .5;
+
+% Target dynamics
+F = [1  sim_dt  0  0;
+     0  1       0  0;
+     0  0       1  sim_dt;
+     0  0       0  1]; % Constant velocity
+Q = [1 0 0 0;
+     0 0 0 0;
+     0 0 1 0;
+     0 0 0 0] * 0.1;
+
+% Detection and survival probabilities
+pd0 = 0.9;  % Probability of detecting a "clutter" object
+pd1 = 0.9;  % Probability of detecting a target
+ps0 = 0.1;  % Probability of clutter survival
+ps1 = 0.99; % Probability of target survival
+
+% Sensor
+fov = 90;
+range = 40;
+
+% Measurements
+% Only positions are measured
+H = [1 0 0 0;
+     0 0 1 0];
+sigma_rb_true = [.25 0;   % range
+                  0  10];   % bearing
+sigma_rb_true = [0.001 0;
+            0 0.001];
+% TODO: R should be calculated for each measurement
+R_true = sigma_rb_true;
+R_true(2, 2) = range * sind(sigma_rb_true(2, 2));
+
+% Clutter
+A_fov = (pi * range^2) * (fov / 360);
+lambda_true = 0; % Expected number of clutter returns
 %% System model
 n_states = 2;
 model = cphd_model();
@@ -25,10 +66,10 @@ model.F = eye(n_states);
 model.Q = .5 * eye(n_states);
 
 % Detection and survival probabilities
-model.pd0 = 0.6;  % Probability of detecting a "clutter" object
-model.pd1 = 1.0;  % Probability of detecting a target
-model.ps0 = 0.1;  % Probability of clutter survival
-model.ps1 = 0.99;  % Probability of target survival
+model.pd0 = pd0;    % Probability of detecting a "clutter" object
+model.pd1 = pd1;    % Probability of detecting a target
+model.ps0 = ps0;    % Probability of clutter survival
+model.ps1 = ps1;    % Probability of target survival
 
 % Target birth model
 bm = load('../models/birth_model_100.mat');
@@ -39,26 +80,22 @@ model.gamma1 = birth_rate .* bm.gamma;
 fov = 90;
 range = 40;
 sigma_rb = [.25 0;   % range
-            0  10];   % bearing
-sigma_rb = [0.001 0;
-            0 0.001];
+            0   1];   % bearing
 % TODO: R should be calculated for each measurement
 R = sigma_rb;
 R(2, 2) = range * sind(sigma_rb(2, 2));
 
 H = eye(n_states);
 
-% clutter: poisson 
-A_fov = (pi * range^2) * (fov / 360);
-lambda_true = 0; %2; % Expected number of clutter returns
-model.Ngamma0 = 0.5; % Mean clutter birth rate
-model.kappa = 1 / A_fov; % Clutter is equally likely anywhere
+% clutter
+model.Ngamma0 = 0.5;        % Mean clutter birth rate
+model.kappa = 1 / A_fov;    % Clutter is equally likely anywhere
 
 %% Define environment
 % Bounds for northing and easting
 min_n = 0;
 max_n = 100;
-min_e = -20;
+min_e = -30;
 max_e = 100;
 northings = min_n:.1:max_n;
 eastings = min_e-10:.1:max_e;
@@ -66,12 +103,10 @@ eastings = min_e-10:.1:max_e;
 % Simple targets: line of targets heading straight at sensor
 n_tgt = 10;  % Start with a single target
 spacing = 4; 
-v_n = 0;
-v_e = 0;
-v_tgt = repmat([v_n, v_e], n_tgt, 1);
-tgt_e = zeros(n_tgt, 1); % + min_e;
+tgt_e = zeros(n_tgt, 1) + min_e;
 tgt_n = linspace(35, 10, n_tgt)';
-map = [tgt_n tgt_e ones(n_tgt, 1) * model.pd1]; 
+v_tgt = repmat([v_n, v_e], n_tgt, 1);
+map = [tgt_n tgt_e ones(n_tgt, 1) .* pd1]; 
 
 % Plot map
 map_fig = figure;
@@ -84,7 +119,6 @@ axis([-30, 30, 0, 100])
 delete(h_map)
 
 %% Simulate
-sim_dt = 1;
 t_total = 100;
 t = 0:sim_dt:t_total;
 sim_steps = numel(t);
@@ -107,6 +141,7 @@ pass = 1;
 v_fig = figure;
 n_fig = figure;
 rho_fig = figure;
+lambda_fig = figure;
 for k = 2:sim_steps
     tk = t(j);
     j = j+1;
@@ -118,7 +153,7 @@ for k = 2:sim_steps
     psi = x(k, 6);
 
     % Get relative positions of simuated observations
-    [r, b, r_true, b_true] = simulate_sonar_obs([n, e, psi], map, range, fov, lambda_true, sigma_rb);
+    [r, b, r_true, b_true] = simulate_sonar_obs([n, e, psi], map, range, fov, lambda_true, sigma_rb_true);
     map(:, 1:2) = map(:, 1:2) + v_tgt .* sim_dt;
 
     % Convert to absolute coordinates
@@ -159,18 +194,22 @@ for k = 2:sim_steps
         % observations
         figure(map_fig);
         h_obs = [];
+        h_trackers = [];
         n_trackers = zeros(k, 1);
         n_true = zeros(k, 1);
         for kk = 1:k
             n_trackers(kk) = size(Xhat{kk}, 2);
-            n_true(kk) = size(true_obs{k}, 1);
+            n_true(kk) = size(true_obs{kk}, 1);
             obs_k = obs{kk};
             if ~isempty(obs_k)
                 h_obs = [h_obs plot(obs_k(:, 2), obs_k(:, 1), '.')];
             end
+            if ~isempty(Xhat{kk})
+                h_trackers = [h_trackers plot(Xhat{kk}(2, :), Xhat{kk}(1,:), 'o')];
+            end            
         end
         h_obs = [h_obs plot(obs{k}(:, 2), obs{k}(:, 1), 'o')];
-        handles = [handles h_obs];
+        handles = [handles h_obs h_trackers];
 
         % Plot estimates
         figure(map_fig);
@@ -178,7 +217,7 @@ for k = 2:sim_steps
         if ~isempty(trackers)
             h_tracker = plot(trackers(2, :), trackers(1, :), 'go', 'LineWidth', 2, 'MarkerSize', 6);
             title(['Map and Observations After t = ' num2str(k)])
-            legend('Targets', 'Measurements', 'Tracked Objects')
+            %legend('Targets', 'Measurements', 'Tracked Objects')
             set(gca, 'Fontsize', 18)
             axis equal;
             axis([-30, 30, 0, 100])
@@ -199,7 +238,7 @@ for k = 2:sim_steps
         plot(N1, 'LineWidth', 2)
         plot(n_trackers, 'LineWidth', 2);
         plot(n_true, '--', 'LineWidth', 2)
-        title 'Cardinality'
+        title(['Cardinalities after t = ' num2str(k)])
         xlabel 'Time step'
         legend('Clutter Generators', 'Targets', 'Tracked Objects', 'True Number of Targets')
         set(gca, 'Fontsize', 18)
@@ -226,7 +265,6 @@ for k = 2:sim_steps
         % Clear plotted stuff
         delete(handles);
         clf(n_fig);
-        break;
     end
 
 end

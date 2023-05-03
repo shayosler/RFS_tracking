@@ -12,10 +12,10 @@ rng(seed);
 vo_model= gen_model;
 vo_truth= gen_truth(vo_model);
 vo_meas=  gen_meas(vo_model,vo_truth);
-%vo_est=   run_filter(vo_model, vo_meas);
-%handles= plot_results(vo_model, vo_truth, vo_meas, vo_est);
+vo_est=   run_filter(vo_model, vo_meas);
+handles= plot_results(vo_model, vo_truth, vo_meas, vo_est);
 
-%% Filtering parameters
+%% Filtering parameters (from paper)
 params = cphd_params();
 params.Nmax = 300;
 params.U = 4;
@@ -38,7 +38,6 @@ model.ps0 = vo_model.clutter_P_S;  % Probability of clutter survival
 model.ps1 = vo_model.P_S;  % Probability of target survival
 
 % Target birth model
-model.rho_gamma1 = poisspdf(0:1:params.Nmax, sum(vo_model.w_birth) + vo_model.lambda_cb);
 model.gamma1 = GMRFS(vo_model.m_birth, vo_model.P_birth, vo_model.w_birth);
 
 % Sensor/measurement model
@@ -50,9 +49,6 @@ A_fov = (vo_model.range_c(1, 2) - vo_model.range_c(1, 1)) * (vo_model.range_c(2,
 lambda_true = 50; %2; % Expected number of clutter returns
 model.Ngamma0 = vo_model.lambda_cb;
 model.kappa = 1 / A_fov; % Clutter is equally likely anywhere
-
-% Hybrid birth model cardinality distribution
-model.rho_gamma1 = poisspdf(0:1:params.Nmax, sum(vo_model.w_birth) + vo_model.lambda_cb);
 
 %% Define environment
 % Bounds for northing and easting
@@ -100,7 +96,7 @@ for k = 2:sim_steps
     [states(k), Xhat{k}, lambda(k)] = cphd_filter(states(k-1), measurement, model, params);
 
     %% Plots
-    if mod(k, 10) == 0
+    if mod(k, 100) == 0
         handles = [];
 
         % Current target locations
@@ -149,7 +145,7 @@ for k = 2:sim_steps
         hold on
         plot(N1, 'LineWidth', 2)
         plot(n_trackers, 'LineWidth', 2);
-        plot(vo_truth.N(1:k))
+        plot(vo_truth.N(1:k), '--', 'LineWidth', 2)
         title 'Cardinality'
         xlabel 'Time step'
         legend('Clutter Generators', 'Targets', 'Tracked Objects', 'True Number of Targets')
