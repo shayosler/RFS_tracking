@@ -1,0 +1,86 @@
+\documentclass{article}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Packages
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage{amsmath}
+\usepackage{tikz}
+\usepackage{graphicx}
+\usepackage{fancyhdr} % Customize header and footer
+\usepackage{listings} % Allows syntax highlighting
+\usepackage{lstautogobble}
+\usepackage[hidelinks]{hyperref}
+\usepackage{float}
+\usepackage{pdfpages}
+\usepackage[margin=1.0in]{geometry}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% General document setup
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usetikzlibrary{positioning}
+\setlength{\parindent}{0em}
+\graphicspath{ {./} }
+
+\newcommand{\course}{MEng Project}
+\newcommand{\assignment}{\course{} Progress Report}
+\newcommand{\name}{Shay Osler}
+
+% PDF specific setup, links, title, bookmarks
+\hypersetup
+{
+  colorlinks=true,
+  linkcolor=black,
+  citecolor=black,
+  bookmarks=true,
+  pdftitle=\name{} - \assignment{},
+  urlcolor=blue
+}
+
+% Define formatting for code
+\lstset
+{
+  language=Matlab,
+  basicstyle=\ttfamily,
+  breaklines=false,
+  autogobble=true,
+  keywordstyle=\color{blue},
+  commentstyle=\color{green}
+}
+
+% Header and Footer
+\pagestyle{fancy}
+\lhead{\name}
+\chead{}
+\rhead{\assignment}
+
+\lfoot{}
+\cfoot{\thepage}
+\rfoot{}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Content
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+
+· Your name, your advisor, the Project title, other group members\\
+· A problem statement and schedule\\
+· Work accomplished this semester\\
+· Estimate of the number of hours worked on the Project this semester (the rule of thumb is that you should do 3-4 hours of work per week per credit)\\
+· Work to be done next semester\\
+· This is good to share with your advisor – and also ask for an assessment of how well you have done this semester.\\
+
+\begin{center}
+  \section*{Multi Object Tracking with Random Finite Sets}
+  Advisor: Mark Campbell
+\end{center}
+
+
+The project I am working on is an independent study on multi-object tracking using Random Finite Sets (RFS). The intent is to implement a number of different RFS based filters, and then evaluate their performance. Performance will first be evaluated against synthetic datasets, and then against real world datasets collected in environments that represent typical operating conditions for self driving automobiles, and for unmanned underwater vehicles.
+
+This semester was spent first in independent study learning the fundamentals of random finite sets and how they can be applied to tracking and estimation problems. The \cite{cphd}
+\section*{Appendix 1: Matlab Code}
+\subsection*{foo.m}
+\begin{lstlisting}[language=Matlab]
+\end{lstlisting}
+
+\end{document}
