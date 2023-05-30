@@ -13,6 +13,8 @@
 \usepackage{float}
 \usepackage{pdfpages}
 \usepackage[margin=1.0in]{geometry}
+\usepackage[backend=biber,style=ieee]{biblatex}
+\addbibresource{bibliography.bib}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % General document setup
@@ -62,25 +64,21 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{document}
 
-· Your name, your advisor, the Project title, other group members\\
-· A problem statement and schedule\\
-· Work accomplished this semester\\
-· Estimate of the number of hours worked on the Project this semester (the rule of thumb is that you should do 3-4 hours of work per week per credit)\\
-· Work to be done next semester\\
-· This is good to share with your advisor – and also ask for an assessment of how well you have done this semester.\\
-
 \begin{center}
   \section*{Multi Object Tracking with Random Finite Sets}
   Advisor: Mark Campbell
 \end{center}
 
 
-The project I am working on is an independent study on multi-object tracking using Random Finite Sets (RFS). The intent is to implement a number of different RFS based filters, and then evaluate their performance. Performance will first be evaluated against synthetic datasets, and then against real world datasets collected in environments that represent typical operating conditions for self driving automobiles, and for unmanned underwater vehicles.
+The project I am working on is an independent study on multi-object tracking using Random Finite Sets (RFS). The intent is to implement a number of different RFS based filters, and then evaluate their performance. Performance will first be evaluated against synthetic datasets, and then against real world datasets collected in environments that represent typical operating conditions for self driving automobiles, and for unmanned underwater vehicles. The project was started this semested and I plan to complete it this summer.\\
 
-This semester was spent first in independent study learning the fundamentals of random finite sets and how they can be applied to tracking and estimation problems. The \cite{cphd}
-\section*{Appendix 1: Matlab Code}
-\subsection*{foo.m}
-\begin{lstlisting}[language=Matlab]
-\end{lstlisting}
+This semester was spent first independently researching and learning the fundamentals of random finite sets and how they can be applied to tracking and estimation problems. Next I implemented two filters. Bth of the filters I implemented were adaptive forms of the Cardinalized Probability Hypothesis Density (CPDH) Filter. The first filter was a CPHD filter with unknown clutter rate \cite{cphd} which estimates the rate of clutter detections simultaneously with the states and cardinality of a set of tracked objects. The second filter was a CPHD filter with unknown detection profile\cite{cphd}, which estimates the target detection probability simultaneously with the number and state of tracked targets. So far only synthetic data has been used for testing and validation. I would estimae approximately 200 hours were spent on the project this semester.\\
+
+Next semester I plan to implement a third RFS based filter, an adaptive generalized labeled multi-Bernoulli filter\cite{adaptive_dglmb}, and then compare the performance of the 3 filters against the nuScenes self driving data set\cite{nuscenes} and data sets collected from UUVs during seting at my current job.
+
+
+\clearpage
+\pagebreak
+\printbibliography
 
 \end{document}
