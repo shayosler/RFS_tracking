@@ -1,5 +1,7 @@
-function [state_k, Xhat, lambda] = cphd_filter(state, measurement, model, params)
+function [state_k, Xhat, lambda] = lcphd_filter(state, measurement, model, params)
 % Cardinalized PHD filter for tracking with unknown clutter model
+% (lambda-CPHD filter)
+% Based on: https://ieeexplore.ieee.org/document/5730505
 % Inputs:
 %   state       cphd_state object containing the previous state of the system
 %   measurement cphd_measurement object containing the measurement(s) for 
