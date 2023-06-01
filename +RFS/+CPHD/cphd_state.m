@@ -19,7 +19,7 @@ classdef cphd_state
                 obj.N1 = N1;
                 obj.rho = rho;
             elseif nargin == 0
-                obj.v = GMRFS();
+                obj.v = RFS.utils.GMRFS();
                 obj.N0 = 0;
                 obj.N1 = 0;
                 obj.rho = [];

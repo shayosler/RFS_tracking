@@ -79,5 +79,5 @@ sum_unpruned = sum(v.w);
 sum_pruned = sum(w);
 w = (sum_unpruned / sum_pruned) .* w;
 
-v_out = GMRFS(m, P, w);
+v_out = RFS.utils.GMRFS(m, P, w);
 end

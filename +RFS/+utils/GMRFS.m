@@ -40,7 +40,7 @@ classdef GMRFS
                 new_mu = [first.m second.m];
                 new_sigma = cat(3, first.P, second.P);
                 new_w = [first.w; second.w];
-                s = GMRFS(new_mu, new_sigma, new_w);
+                s = RFS.utils.GMRFS(new_mu, new_sigma, new_w);
             end
         end
 

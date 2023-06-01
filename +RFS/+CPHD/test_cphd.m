@@ -9,7 +9,7 @@ seed = 1;
 rng(seed);
 
 %% Filtering parameters
-params = cphd_params();
+params = RFS.CPHD.cphd_params();
 params.Nmax = 32;
 params.U = 4;
 params.T = 1e-5;
@@ -59,7 +59,7 @@ A_fov = (pi * range^2) * (fov / 360);
 lambda_true = 0; % Expected number of clutter returns
 %% System model
 n_states = 2;
-model = cphd_model();
+model = RFS.CPHD.cphd_model();
 
 % Target dynamics
 model.F = eye(n_states);
@@ -72,7 +72,7 @@ model.ps0 = ps0;    % Probability of clutter survival
 model.ps1 = ps1;    % Probability of target survival
 
 % Target birth model
-bm = load('../models/birth_model_100.mat');
+bm = load('../../models/birth_model_100.mat');
 birth_rate = 0.01; % Expected rate of new births
 model.gamma1 = birth_rate .* bm.gamma;
 
@@ -130,8 +130,8 @@ obs = cell(sim_steps, 1);
 true_obs = cell(sim_steps, 1);
 lambda = zeros(sim_steps, 1);
 lambda(1) = 1;
-states(sim_steps, 1) = cphd_state;
-states(1).v = GMRFS();
+states(sim_steps, 1) = RFS.CPHD.cphd_state;
+states(1).v = RFS.utils.GMRFS();
 states(1).N0 = 0;
 states(1).N1 = 0;
 states(1).rho = ones(params.Nmax + 1, 1) ./ (params.Nmax + 1); % initial cardinality distribution is unknown
@@ -153,7 +153,7 @@ for k = 2:sim_steps
     psi = x(k, 6);
 
     % Get relative positions of simuated observations
-    [r, b, r_true, b_true] = simulate_sonar_obs([n, e, psi], map, range, fov, lambda_true, sigma_rb_true);
+    [r, b, r_true, b_true] = RFS.utils.simulate_sonar_obs([n, e, psi], map, range, fov, lambda_true, sigma_rb_true);
     map(:, 1:2) = map(:, 1:2) + v_tgt .* sim_dt;
 
     % Convert to absolute coordinates
@@ -173,13 +173,13 @@ for k = 2:sim_steps
     true_obs{k}(:, 2) = e_obs_true;
     %all_obs = [all_obs; obs{k}];   
 
-    measurement = cphd_measurement();
+    measurement = RFS.CPHD.cphd_measurement();
     measurement.Z = obs{k}';
     measurement.H = H;
     measurement.R = R;
 
     % Update estimates
-    [states(k), Xhat{k}, lambda(k)] = cphd_filter(states(k-1), measurement, model, params);
+    [states(k), Xhat{k}, lambda(k)] = RFS.CPHD.lcphd_filter(states(k-1), measurement, model, params);
     %[v_k_obs, N_in_k, ~] = phd_filter(v{k-1}, N_in, F, Q, ps, pd, gamma, obs{k}', H, R, kappa, U, T, Jmax, w_min);
 
     %% Plots
@@ -226,7 +226,7 @@ for k = 2:sim_steps
         
         % Plot current fov
         figure(map_fig);
-        h_fov = plot_sonar_fov([n, e], psi, range, fov, 'b');
+        h_fov = RFS.utils.plot_sonar_fov([n, e], psi, range, fov, 'b');
         handles = [handles h_fov];
 
         % Plot estimated number of targets/clutter
@@ -253,7 +253,7 @@ for k = 2:sim_steps
         
         % Plot current intensity
         figure(v_fig);
-        h_v = plotgmphd(states(k).v, northings, eastings);
+        h_v = RFS.utils.plotgmphd(states(k).v, northings, eastings);
         handles = [handles h_v];
         title(['PHD Intensity After t = ' num2str(k)])
         set(gca, 'Fontsize', 18)

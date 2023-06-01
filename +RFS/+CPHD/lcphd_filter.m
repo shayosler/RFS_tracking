@@ -65,7 +65,7 @@ for j = 1:Jk
 end
 
 % Full prediction is sum of births and propagation
-v_kk1 = gamma1 + GMRFS(m_kk1, P_kk1, ps1.*v.w); %GMRFS(m_kk1, P_kk1, ps1.*v.w) + gamma1; % Order swapped to make comparison to vo easier
+v_kk1 = gamma1 + RFS.utils.GMRFS(m_kk1, P_kk1, ps1.*v.w);
 P_kk1 = v_kk1.P;
 m_kk1 = v_kk1.m;
 
@@ -191,7 +191,7 @@ if sum(rho_k) ~= 0
 end
 
 % Update intensity RFS
-sum_vD = GMRFS();
+sum_vD = RFS.utils.GMRFS();
 sum_Nk = 0;
 for jz = 1:Jz
     % Apply each measurement to each element of the RFS, basically
@@ -238,7 +238,7 @@ for jz = 1:Jz
         end
 
     end
-    sum_vD = sum_vD + GMRFS(m_kkz, P_kk, wkz);
+    sum_vD = sum_vD + RFS.utils.GMRFS(m_kkz, P_kk, wkz);
 end
 
 % This ratio of inner products gets reused:
@@ -254,10 +254,10 @@ v_k_unpruned = (1 - pd1) * psi_rho_weights .*  v_kk1 + sum_vD;
 N0_k = N0_kk1 * ((1 - pd0) * psi_rho_weights + sum_Nk); 
 
 %% Prune
-v_k = prune_gmphd(v_k_unpruned, T, U, Jmax); 
+v_k = RFS.utils.prune_gmphd(v_k_unpruned, T, U, Jmax); 
  
 %% Outputs
-state_k = cphd_state();
+state_k = RFS.CPHD.cphd_state();
 state_k.N0 = N0_k;
 state_k.N1 = sum(v_k.w);
 state_k.v = v_k;
