@@ -3,6 +3,9 @@ clc
 clear
 close all
 
+%% Import
+
+
 %% birth model:
 % new targets are most likely to appear at the leading edge of the sonar's
 % field of view
@@ -31,7 +34,7 @@ axis equal
 
 %% Fit gaussian mixture
 samples = 100000;
-%samples = 10000;
+samples = 10000;
 bearings = l_lim + (r_lim-l_lim).*rand(samples,1);
 ranges = -abs(normrnd(0, sigma, samples, 1)) + range;
 pts = [bearings ranges];
@@ -40,12 +43,14 @@ pts = [bearings ranges];
 figure 
 plot(se, sn, '.');
 
+% Fit gaussian mixture
+num_gaussians = 100;
 options = statset('MaxIter', 1000);
-dist = fitgmdist([sn, se], 250, 'SharedCovariance', false, 'Options',options);
+dist = fitgmdist([sn, se], num_gaussians, 'SharedCovariance', false, 'Options',options);
 n = 0:.1:60;
 e = -40:.1:40;
 
-gamma = GMRFS(dist.mu', dist.Sigma, dist.ComponentProportion);
+gamma = RFS.utils.GMRFS(dist.mu', dist.Sigma, dist.ComponentProportion);
 figure
-plotgmphd(gamma, n, e);
+RFS.utils.plotgmphd(gamma, n, e);
 axis equal
