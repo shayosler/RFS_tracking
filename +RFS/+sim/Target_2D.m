@@ -14,7 +14,7 @@ classdef Target_2D
 
     methods
         function [n, e] = get_position(this)
-            %get_position Get the target position
+            %get_position Get the target position(s)
             % [n, e] = get_position
             % Outputs:
             %   n       Target northing
@@ -22,11 +22,13 @@ classdef Target_2D
             %
             % P = get_position
             % Outputs:
-            %   P       Target position [northing, easting]
-            northing = this.X(1);
-            easting = this.X(3);
+            %   P       Target position [northing; easting]
+            state = [this.X];
+
+            northing = state(1, :);
+            easting = state(3, :);
             if nargout == 1
-                n = [northing, easting];
+                n = [northing; easting];
             else
                 n = northing;
                 e = easting;
