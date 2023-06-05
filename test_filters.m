@@ -17,10 +17,7 @@ F = [1  sim_dt  0  0;
      0  1       0  0;
      0  0       1  sim_dt;
      0  0       0  1]; % Constant velocity
-Q = [1 0 0 0;
-     0 0 0 0;
-     0 0 1 0;
-     0 0 0 0] * 0.1;
+Q = diag([.1 0 .1 0]);
 
 % Detection and survival probabilities
 pd0 = 0.9;  % Probability of detecting a "clutter" object
@@ -44,45 +41,6 @@ R_0deg_true = [sensor.sigma_range 0; 0 sensor.range * sind(sensor.sigma_bearing)
 
 % Clutter
 A_fov = (pi * sensor.range^2) * (sensor.fov / 360);
-
-%% Filtering parameters
-params = RFS.CPHD.cphd_params();
-params.Nmax = 100;      % Maximum number of tracked objects
-params.U = 4;           % Threshold for merging
-params.T = 1e-5;        % Threshold for
-params.Jmax = 100;      % Maximum number of components to keep during pruning
-params.w_min = 0.5;     % Minimum weight to track
-
-%% System model used for filtering
-n_states = 2;
-model = RFS.CPHD.cphd_model();
-
-% Target dynamics
-model.F = eye(n_states);
-model.Q = .5 * eye(n_states);
-
-% Detection and survival probabilities
-model.pd0 = pd0;    % Probability of detecting a "clutter" object
-model.pd1 = pd1;    % Probability of detecting a target
-model.ps0 = ps0;    % Probability of clutter survival
-model.ps1 = ps1;    % Probability of target survival
-
-% Target birth model
-bm = load('./models/birth_model_100.mat');
-birth_rate = 0.01; % Expected rate of new births
-model.gamma1 = birth_rate .* bm.gamma;
-
-% Sensor/measurement model
-sigma_rb = [.25 0;   % range
-            0   1];   % bearing
-% TODO: R should be calculated for each measurement
-R = sigma_rb;
-R(2, 2) = sensor.range * sind(sigma_rb(2, 2));
-H = eye(n_states);
-
-% clutter
-model.Ngamma0 = 0.5;        % Mean clutter birth rate
-model.kappa = 1 / A_fov;    % Clutter is equally likely anywhere
 
 %% Define environment
 % Bounds for northing and easting
@@ -118,6 +76,46 @@ axis equal;
 axis([-30, 30, 0, 100])
 delete(h_map)
 
+%% l-CPHD Filtering parameters
+lcphd_params = RFS.CPHD.cphd_params();
+lcphd_params.Nmax = 100;      % Maximum number of tracked objects
+lcphd_params.U = 4;           % Threshold for merging components during pruning
+lcphd_params.T = 1e-5;        % Threshold for discarding components during pruning
+lcphd_params.Jmax = 100;      % Maximum number of components to keep during pruning
+lcphd_params.w_min = 0.5;     % Minimum weight to track
+
+%% System model used for filtering
+n_states = 2;
+model = RFS.CPHD.cphd_model();
+
+% Target dynamics
+model.F = eye(n_states);
+model.Q = .5 * eye(n_states);
+
+% Detection and survival probabilities
+model.pd0 = pd0;    % Probability of detecting a "clutter" object
+model.pd1 = pd1;    % Probability of detecting a target
+model.ps0 = ps0;    % Probability of clutter survival
+model.ps1 = ps1;    % Probability of target survival
+
+% Target birth model
+bm = load('./models/birth_model_100.mat');
+birth_rate = 0.01; % Expected rate of new births
+model.gamma1 = birth_rate .* bm.gamma;
+
+% Sensor/measurement model
+sigma_rb = [.25 0;   % range
+            0   1];   % bearing
+
+% TODO: R should be calculated for each measurement
+R = sigma_rb;
+R(2, 2) = sensor.range * sind(sigma_rb(2, 2));
+H = eye(n_states);
+
+% clutter
+model.Ngamma0 = 0.5;        % Mean clutter birth rate
+model.kappa = 1 / A_fov;    % Clutter is equally likely anywhere
+
 %% Simulate
 t_total = 100;
 t = 0:sim_dt:t_total;
@@ -134,7 +132,7 @@ states(sim_steps, 1) = RFS.CPHD.cphd_state;
 states(1).v = RFS.utils.GMRFS();
 states(1).N0 = 0;
 states(1).N1 = 0;
-states(1).rho = ones(params.Nmax + 1, 1) ./ (params.Nmax + 1); % initial cardinality distribution is unknown
+states(1).rho = ones(lcphd_params.Nmax + 1, 1) ./ (lcphd_params.Nmax + 1); % initial cardinality distribution is unknown
 j = 1;
 pass = 1;
 
@@ -152,9 +150,12 @@ for k = 2:sim_steps
     e = x(k, 2);
     psi = x(k, 6);
 
-    % Get relative positions of simuated observations
-    [r, b, r_true, b_true] = RFS.utils.simulate_sonar_obs([n, e, psi], map, range, fov, lambda_true, sigma_rb_true);
-    map(:, 1:2) = map(:, 1:2) + v_tgt .* sim_dt;
+    % Update target positions
+    existing = [targets.t_birth] <= k & [targets.t_death] > k;
+    targets(existing) = targets(existing).step();
+
+    % Get measurements of targets
+    [r, b, r_true, b_true] = sensor.measure([n, e, psi], targets(existing));   
 
     % Convert to absolute coordinates
     b = b + psi; 
@@ -179,7 +180,7 @@ for k = 2:sim_steps
     measurement.R = R;
 
     % Update estimates
-    [states(k), Xhat{k}, lambda(k)] = RFS.CPHD.lcphd_filter(states(k-1), measurement, model, params);
+    [states(k), Xhat{k}, lambda(k)] = RFS.CPHD.lcphd_filter(states(k-1), measurement, model, lcphd_params);
     %[v_k_obs, N_in_k, ~] = phd_filter(v{k-1}, N_in, F, Q, ps, pd, gamma, obs{k}', H, R, kappa, U, T, Jmax, w_min);
 
     %% Plots

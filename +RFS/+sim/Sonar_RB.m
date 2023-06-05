@@ -35,12 +35,9 @@ classdef Sonar_RB
                 error('targets must be 1xN or Nx1')
             end
 
-            % Generate map of all existing targets
-            map = zeros(length(targets), 1); % [n e pd; ...]
-            for k = 1:length(targets)
-                tgt = targets(k);
-                map(k, :) = [tgt.state(1) tgt.state(3) tgt.pd * this.pd];
-            end
+            % Generate map containing data we care about for of all targets
+            state = [targets.X]';
+            map = [state(:, 1) state(:, 2) [targets.pd]'.*this.pd];
 
             % Calculate range/bearing to each target
             n_obj = size(map, 1);

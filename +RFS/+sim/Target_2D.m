@@ -36,10 +36,13 @@ classdef Target_2D
             return 
         end
 
-        function obj = step(this)
+        function objs = step(objs)
             %step(this) Propagate the target one time step forward
-            obj = this;
-            obj.X = this.F * this.X + mvnrnd([0, 0, 0, 0], sqrtm(this.Q));
+            for i = 1:numel(objs)
+                obj = objs(i);
+                obj.X = objs(i).F * objs(i).X + mvnrnd([0, 0, 0, 0], objs(i).Q)';
+                objs(i) = obj;
+            end            
         end
 
     end % methods
