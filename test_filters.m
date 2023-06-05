@@ -68,7 +68,7 @@ model.ps0 = ps0;    % Probability of clutter survival
 model.ps1 = ps1;    % Probability of target survival
 
 % Target birth model
-bm = load('../../models/birth_model_100.mat');
+bm = load('./models/birth_model_100.mat');
 birth_rate = 0.01; % Expected rate of new births
 model.gamma1 = birth_rate .* bm.gamma;
 
@@ -77,7 +77,7 @@ sigma_rb = [.25 0;   % range
             0   1];   % bearing
 % TODO: R should be calculated for each measurement
 R = sigma_rb;
-R(2, 2) = range * sind(sigma_rb(2, 2));
+R(2, 2) = sensor.range * sind(sigma_rb(2, 2));
 H = eye(n_states);
 
 % clutter
