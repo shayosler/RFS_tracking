@@ -111,15 +111,6 @@ classdef Sonar_RB
                 r = [r; r_clut];
                 b = [b; b_clut];
             end
-
-            if this.lambda > 0 && false
-                n_fp = poissrnd(this.lambda);
-                b_fp = (rand(n_fp, 1)) * this.fov - (this.fov / 2);
-                r_fp = rand(n_fp, 1) * this.range;
-                % Output is observed objects and random false positives
-                r = [r; r_fp];
-                b = [b; b_fp];
-            end
         end % measure()
 
     end % methods
