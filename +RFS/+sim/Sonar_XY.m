@@ -14,6 +14,15 @@ classdef Sonar_XY
     end % properties
 
     methods
+        function h = plot_fov(this, n, e, psi, varargin)
+            %plot_fov Plot this sensor's field of view
+            % Inputs
+            %   n   Current sensor northing
+            %   e   Current sensor easting
+            %   psi Current sensor heading
+            h = RFS.utils.plot_sonar_fov([n, e], psi, this.range, this.fov, varargin{:});
+        end
+
         function in = in_fov(this, x, y)
             %in_fov Test if a point is in the field of view
             %
@@ -57,7 +66,7 @@ classdef Sonar_XY
 
                 % Generate map containing data we care about for of all targets
                 state = [targets.X]';
-                map = [state(:, 1) state(:, 2) [targets.pd]'.*this.pd];
+                map = [[targets.get_position]' [targets.pd]'.*this.pd];
 
                 % Calculate range/bearing to each target
                 n_obj = size(map, 1);

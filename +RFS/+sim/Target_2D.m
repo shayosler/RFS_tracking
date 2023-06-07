@@ -12,6 +12,10 @@ classdef Target_2D
 
     end % properties
 
+    properties (Access = private)
+        trajectory
+    end
+
     methods
         function [n, e] = get_position(this)
             %get_position Get the target position(s)
@@ -40,9 +44,15 @@ classdef Target_2D
             %step(this) Propagate the target one time step forward
             for i = 1:numel(objs)
                 obj = objs(i);
+                obj.trajectory = [obj.trajectory obj.X];
                 obj.X = objs(i).F * objs(i).X + mvnrnd([0, 0, 0, 0], objs(i).Q)';
                 objs(i) = obj;
             end            
+        end
+
+        function traj = get_trajectory(this)
+            %get_trajectory Get the target's trajectory
+            traj = [this.trajectory this.X];
         end
 
     end % methods

@@ -17,7 +17,7 @@ F = [1  sim_dt  0  0;
      0  1       0  0;
      0  0       1  sim_dt;
      0  0       0  1]; % Constant velocity
-Q = diag([.1 0 .1 0]);
+Q = diag([.1 0 .1 0]) * 0;
 
 % Detection and survival probabilities
 pd0 = 0.9;  % Probability of detecting a "clutter" object
@@ -29,8 +29,8 @@ ps1 = 0.99; % Probability of target survival
 sensor = RFS.sim.Sonar_RB;
 sensor.fov = 90;
 sensor.range = 40;
-sensor.sigma_range = .25;
-sensor.sigma_bearing = 5;
+sensor.sigma_range = .25 * 1e-6;
+sensor.sigma_bearing = 5 * 1e-6;
 sensor.lambda = 0;
 sensor.pd = pd0;
 
@@ -47,7 +47,8 @@ A_fov = (pi * sensor.range^2) * (sensor.fov / 360);
 min_n = 0;
 max_n = 100;
 min_e = -30;
-max_e = 100;
+max_e = 30;
+bounds = [min_e max_e min_n max_n];
 northings = min_n:.1:max_n;
 eastings = min_e-10:.1:max_e;
 
@@ -73,7 +74,7 @@ hold on
 title 'Target Locations'
 set(gca, 'Fontsize', 18)
 axis equal;
-axis([-30, 30, 0, 100])
+axis(bounds)
 delete(h_map)
 
 %% l-CPHD Filtering parameters
@@ -126,24 +127,25 @@ x = zeros(sim_steps, 12);
 Xhat = cell(sim_steps, 1);
 obs = cell(sim_steps, 1);
 true_obs = cell(sim_steps, 1);
-lambda = zeros(sim_steps, 1);
-lambda(1) = 1;
-states(sim_steps, 1) = RFS.CPHD.cphd_state;
-states(1).v = RFS.utils.GMRFS();
-states(1).N0 = 0;
-states(1).N1 = 0;
-states(1).rho = ones(lcphd_params.Nmax + 1, 1) ./ (lcphd_params.Nmax + 1); % initial cardinality distribution is unknown
-j = 1;
-pass = 1;
+lambda_hat = zeros(sim_steps, 1);
+lambda_hat(1) = 1;
+lcphd_states(sim_steps, 1) = RFS.CPHD.cphd_state;
+lcphd_states(1).v = RFS.utils.GMRFS();
+lcphd_states(1).N0 = 0;
+lcphd_states(1).N1 = 0;
+lcphd_states(1).rho = ones(lcphd_params.Nmax + 1, 1) ./ (lcphd_params.Nmax + 1); % initial cardinality distribution is unknown
 
-v_fig = figure;
-n_fig = figure;
-rho_fig = figure;
-lambda_fig = figure;
+% Figures for plotting
+rfs_figures = struct();
+rfs_figures.v_fig = figure;
+rfs_figures.n_fig = figure;
+rfs_figures.map_fig = map_fig;
+
+lcpdh_figures = struct();
+lcpdh_figures.rho_fig = figure;
+lcpdh_figures.lambda_fig = figure;
+rfs_handles = [];
 for k = 2:sim_steps
-    tk = t(j);
-    j = j+1;
-
     % Update vehicle position
     x(k, :) = x(1, :); %grid_trajectory(tk, u, l, d, psi0, n0, e0, z0);
     n = x(k, 1);
@@ -172,100 +174,27 @@ for k = 2:sim_steps
     true_obs{k} = zeros(length(r_true), 2);
     true_obs{k}(:, 1) = n_obs_true;
     true_obs{k}(:, 2) = e_obs_true;
-    %all_obs = [all_obs; obs{k}];   
 
+    % Generate measurement
     measurement = RFS.CPHD.cphd_measurement();
     measurement.Z = obs{k}';
     measurement.H = H;
     measurement.R = R;
 
     % Update estimates
-    [states(k), Xhat{k}, lambda(k)] = RFS.CPHD.lcphd_filter(states(k-1), measurement, model, lcphd_params);
+    [lcphd_states(k), Xhat{k}, lambda_hat(k)] = RFS.CPHD.lcphd_filter(lcphd_states(k-1), measurement, model, lcphd_params);
     %[v_k_obs, N_in_k, ~] = phd_filter(v{k-1}, N_in, F, Q, ps, pd, gamma, obs{k}', H, R, kappa, U, T, Jmax, w_min);
 
     %% Plots
-    if mod(k, 100) == 0
-        handles = [];
-
-        % Current target locations
-        figure(map_fig);
-        h_map = plot(map(:, 2), map(:, 1), 'b*');
-        handles = [handles h_map];
-
-        % observations
-        figure(map_fig);
-        h_obs = [];
-        h_trackers = [];
-        n_trackers = zeros(k, 1);
-        n_true = zeros(k, 1);
-        for kk = 1:k
-            n_trackers(kk) = size(Xhat{kk}, 2);
-            n_true(kk) = size(true_obs{kk}, 1);
-            obs_k = obs{kk};
-            if ~isempty(obs_k)
-                h_obs = [h_obs plot(obs_k(:, 2), obs_k(:, 1), '.')];
-            end
-            if ~isempty(Xhat{kk})
-                h_trackers = [h_trackers plot(Xhat{kk}(2, :), Xhat{kk}(1,:), 'o')];
-            end            
-        end
-        h_obs = [h_obs plot(obs{k}(:, 2), obs{k}(:, 1), 'o')];
-        handles = [handles h_obs h_trackers];
-
-        % Plot estimates
-        figure(map_fig);
-        trackers = Xhat{k};
-        if ~isempty(trackers)
-            h_tracker = plot(trackers(2, :), trackers(1, :), 'go', 'LineWidth', 2, 'MarkerSize', 6);
-            title(['Map and Observations After t = ' num2str(k)])
-            %legend('Targets', 'Measurements', 'Tracked Objects')
-            set(gca, 'Fontsize', 18)
-            axis equal;
-            axis([-30, 30, 0, 100])
-            handles = [handles h_tracker];
-        end
-        
-        % Plot current fov
-        figure(map_fig);
-        h_fov = RFS.utils.plot_sonar_fov([n, e], psi, range, fov, 'b');
-        handles = [handles h_fov];
-
-        % Plot estimated number of targets/clutter
-        figure(n_fig)
-        N0 = [states(1:k).N0];
-        N1 = [states(1:k).N1];
-        plot(N0, 'LineWidth', 2)
-        hold on
-        plot(N1, 'LineWidth', 2)
-        plot(n_trackers, 'LineWidth', 2);
-        plot(n_true, '--', 'LineWidth', 2)
-        title(['Cardinalities after t = ' num2str(k)])
-        xlabel 'Time step'
-        legend('Clutter Generators', 'Targets', 'Tracked Objects', 'True Number of Targets')
-        set(gca, 'Fontsize', 18)
-
-        % Cardinality distribution
-        figure(rho_fig);
-        bar(0:length(states(k).rho) - 1, states(k).rho);
-        set(gca, 'Fontsize', 18)
-        title(['Hybrid Cardinality Distribution after t = ' num2str(k)])
-        xlabel 'N'
-        ylabel '\rho'
-        
-        % Plot current intensity
-        figure(v_fig);
-        h_v = RFS.utils.plotgmphd(states(k).v, northings, eastings);
-        handles = [handles h_v];
-        title(['PHD Intensity After t = ' num2str(k)])
-        set(gca, 'Fontsize', 18)
-        axis equal;
-        axis([-30, 30, 0, 100])
-        colorbar
-
-
-        % Clear plotted stuff
-        delete(handles);
-        clf(n_fig);
-    end
-
+    if mod(k, 1) == 0
+        delete(rfs_handles);
+        rfs_handles = RFS.utils.rfs_tracker_plots(rfs_figures, 'l-CPHD', k, lcphd_states(k).v, [n e psi], Xhat, sensor, obs, true_obs, targets, bounds);
+    end % for k = 2:sim_steps
 end
+
+%% Final plots
+% General RFS plots
+delete(rfs_handles);
+RFS.utils.rfs_tracker_plots(rfs_figures, 'l-CPHD', k, lcphd_states(k).v, [n e psi], Xhat, sensor, obs, true_obs, targets, bounds);
+
+% l-CPHD specific plots
