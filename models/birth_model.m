@@ -20,7 +20,8 @@ theta = linspace(l_lim, r_lim, n_pts);
 
 [R, THETA] = meshgrid(r, theta);
 
-% probability only depends on range
+% probability only depends on range 
+% TODO: this is unused
 mu = range;
 sigma = range/4;
 p = 2 * normpdf(R(:), range, range/4);
@@ -33,20 +34,31 @@ axis equal
 
 
 %% Fit gaussian mixture
-samples = 100000;
 samples = 10000;
+
+% Higher density of points near end range
 bearings = l_lim + (r_lim-l_lim).*rand(samples,1);
 ranges = -abs(normrnd(0, sigma, samples, 1)) + range;
+ranges = rand(samples, 1) * (range);
 pts = [bearings ranges];
-% ensure no points lay past the end range
 [sn, se] = pol2cart(bearings, ranges);
+
+% evenly distributed points
+%min_n = 0;
+%max_n = 40;
+%min_e = -30;
+%max_e = 30;
+%sn = min_n + rand(samples, 1) * (max_n - min_n);
+%se = min_e + rand(samples, 1) * (max_e - min_e);
+
+% ensure no points lay past the end range
 figure 
 plot(se, sn, '.');
 
 % Fit gaussian mixture
-num_gaussians = 100;
-options = statset('MaxIter', 1000);
-dist = fitgmdist([sn, se], num_gaussians, 'SharedCovariance', false, 'Options',options);
+num_gaussians = 200;
+options = statset('MaxIter', 5000);
+dist = fitgmdist([sn, se], num_gaussians, 'SharedCovariance', false, 'Options', options);
 n = 0:.1:60;
 e = -40:.1:40;
 

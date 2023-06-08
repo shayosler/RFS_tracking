@@ -41,7 +41,7 @@ for n = 1:k
         hold on
     end
     if ~isempty(Xhat{n})
-        h_trackers = [h_trackers plot(Xhat{n}(2, :), Xhat{n}(1,:), 'o')];
+        h_trackers = [h_trackers plot(Xhat{n}(2, :), Xhat{n}(1,:), 'go')];
         hold on
     end
 end
@@ -53,7 +53,7 @@ hold on
 handles = [handles h_map];
 
 % Plot final observations
-h_obs = [h_obs plot(z{k}(:, 2), z{k}(:, 1), 'o')];
+h_obs = [h_obs plot(z{k}(:, 2), z{k}(:, 1), 'bo')];
 handles = [handles h_obs h_trackers];
 
 % Plot final position estimates
@@ -90,9 +90,9 @@ colorbar
 
 % Plot true vs estimated number of targets
 figure(figures.n_fig);
-h_nx = plot(n_trackers, 'LineWidth', 2);
+h_nx = plot(n_trackers, 'g', 'LineWidth', 2);
 hold on
-h_ntrue = plot(n_true, '--', 'LineWidth', 2);
+h_ntrue = plot(n_true, 'b--', 'LineWidth', 2);
 handles = [handles h_nx h_ntrue];
 title([prefix ' Cardinalities after t = ' num2str(k)])
 xlabel 'Time step'
@@ -100,6 +100,13 @@ ylabel 'Number'
 legend('Tracked Objects', 'True Targets')
 set(gca, 'Fontsize', 18)
 
-
+%% print out some statistices
+n_err = n_true - n_trackers;
+rms_n_err = rms(n_err);
+mean_n_err = mean(n_err);
+std_n_err = std(n_err);
+fprintf('%s RMS Cardinality Error: %0.3f\n', prefix, rms_n_err);
+fprintf('%s Mean Cardinality Error: %0.3f\n', prefix, mean_n_err);
+fprintf('%s Std Cardinality Error: %0.3f\n', prefix, std_n_err);
 
 end

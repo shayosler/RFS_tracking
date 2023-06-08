@@ -41,7 +41,7 @@ for j = 1:Jk
 end
 
 % Full prediction is sum of births and propagation
-v_kk1 = GMRFS(m_kk1, P_kk1, ps.*v.w) + gamma;
+v_kk1 = RFS.utils.GMRFS(m_kk1, P_kk1, ps.*v.w) + gamma;
 P_kk1 = v_kk1.P;
 m_kk1 = v_kk1.m;
 N_kk1 = ps * N + sum(gamma.w);
@@ -72,7 +72,7 @@ for j = 1:Jkk1
     P_kk(:, :, j) = (I - Kj * H) * P_kk1j * (I - Kj * H)' + Kj * R * Kj';
 end
 
-sum_vD = GMRFS();
+sum_vD = RFS.utils.GMRFS();
 for jz = 1:Jz
     % Apply each measurement to each element of the RFS, basically
     % generating a new gaussian mixture for each measurement
@@ -113,32 +113,32 @@ for jz = 1:Jz
             warning('Suspicious weight')
         end
     end
-    sum_vD = sum_vD + GMRFS(m_kkz, P_kk, wkz);
+    sum_vD = sum_vD + RFS.utils.GMRFS(m_kkz, P_kk, wkz);
 end
 
 v_k_unpruned = (1 - pd) .* v_kk1 + sum_vD;
 N_k = N_kk1 * (1-pd) + sum(sum_vD.w);
 
-% TODO: pruning and estimate extraction has been moved out for now
-% I think that once there is functionality to only filter over the
-% current FOV implemented in this function I can move it back in
-v_k = v_k_unpruned;
+% TODO: pruning and estimating can be moved out to allow filtering only ove
+% the current FOV
+%v_k = v_k_unpruned;
+%Xhat = [];
+
+%% Prune
+v_k = RFS.utils.prune_gmphd(v_k_unpruned, T, U, Jmax);
+
+% Renormalize the weights in v_k so that N_k stays the same
+% TODO: this wasn't done in the paper, but it seems like a step that should
+% happen
+sum_pruned = sum(v_k.w);
+v_k = N_k / sum_pruned .* v_k;
+
+%% Extract a state estimate from the RFS
 Xhat = [];
-% %% Prune
-% v_k = prune_gmphd(v_k_unpruned, T, U, Jmax);
-% 
-% % Renormalize the weights in v_k so that N_k stays the same
-% % TODO: this wasn't done in the paper, but it seems like a step that should
-% % happen
-% sum_pruned = sum(v_k.w);
-% v_k = N_k / sum_pruned .* v_k;
-% 
-% %% Extract a state estimate from the RFS
-% Xhat = [];
-% for i = 1:v_k.J
-%     if v_k.w(i) > w_min
-%         Xhat = [Xhat repmat(v_k.m(:, i), 1, round(v_k.w(i)))];
-%     end
-% end
+for i = 1:v_k.J
+    if v_k.w(i) > w_min
+        Xhat = [Xhat repmat(v_k.m(:, i), 1, round(v_k.w(i)))];
+    end
+end
 
 end
