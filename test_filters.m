@@ -5,7 +5,7 @@ close all
 
 %% Set up
 %seed = 52490;
-seed = 2;
+seed = 1;
 rng(seed);
 
 %% True system
@@ -23,14 +23,14 @@ Q = diag([.1 0 .1 0]) * 0;
 pd0 = 0.2;  % Probability of detecting a "clutter" generator
 pd1 = .99;  % Probability of detecting a target
 ps0 = 0.9;  % Probability of clutter generator survival
-ps1 = 1; % Probability of target survival
+ps1 = .9; % Probability of target survival
 
 % Sensor
 sensor = RFS.sim.Sonar_RB;
 sensor.fov = 90;
 sensor.range = 40;
-sensor.sigma_range = .25 * 1e-9;
-sensor.sigma_bearing = 5 * 1e-9;
+sensor.sigma_range = .25;
+sensor.sigma_bearing = 1;
 sensor.lambda = 10;
 sensor.pd = pd1;
 
