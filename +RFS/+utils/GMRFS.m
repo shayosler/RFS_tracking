@@ -32,6 +32,8 @@ classdef GMRFS
         end
 
         function s = plus(first, second)
+            % Add two GMRFS objects. The result is a GMRFS object
+            % containing the components from both operands
             if first.J == 0
                 s = second;
             elseif second.J == 0
@@ -45,6 +47,8 @@ classdef GMRFS
         end
 
         function s = times(k, rfs)
+            % Multiply by a scalar. All weights are multiplied by the
+            % specified factor.
             if ~isscalar(k)
                 error('Only premultiplication by a scalar is supported')
             end
