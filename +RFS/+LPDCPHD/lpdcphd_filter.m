@@ -1,4 +1,4 @@
-function [state_k, Xhat, lambda] = lpdcphd_filter(state, measurement, model, params)
+function [state_k, Xhat, lambda_hat, pd_hat] = lpdcphd_filter(state, measurement, model, params)
 % Cardinalized PHD filter for tracking with unknown clutter model and 
 % unknown detection profile
 % (lambda-pD-CPHD filter)
@@ -13,7 +13,9 @@ function [state_k, Xhat, lambda] = lpdcphd_filter(state, measurement, model, par
 % Outputs:
 %   state_k     cphd_state object containing the estimated current state of
 %               the system
-%   lambda      Estimated clutter rate
+%   Xhat        Estimated target locations
+%   lambda_hat  Estimated clutter rate
+%   pd_hat     Estimated target detection rate
 
 %if isscalar(pd)
 %    pd = @(m) pd;
@@ -30,16 +32,21 @@ if ~isvector(rho)
     error 'state.rho must by a 1xN or Nx1 vector'
 end
 
-% Extract model data
-Ngamma0 = model.Ngamma0;
-gamma1 = model.gamma1;
-ps0 = model.ps0;
-ps1 = model.ps1;
-pd0 = model.pd0;
-pd1 = model.pd1;
-Q = model.Q;
-F = model.F;
-kappa = model.kappa;
+% Extract model data:
+% 0 suffix -> clutter
+% 1 suffix -> targets
+% delt suffix -> part of augmented state space associated with detection
+% prob
+Ngamma0 = model.Ngamma0;% Mean number of clutter generator births
+gamma1 = model.gamma1;  % Target birth model, filter assumes birth process is Poisson
+ps0 = model.ps0;        % Clutter generator survival probability
+ps1 = model.ps1;        % Target survival probability
+pd0 = model.pd0;        % Clutter generator detection probability
+pd1 = model.pd1;        % Target detection probability
+Q = model.Q;            % Process noise, NxN
+F = model.F;            % State transition matrix x[k+1] = Fx[k], NxN
+kappa = model.kappa;    % Spatial likelihood of clutter
+
 
 % Extract params
 Jmax = params.Jmax;
@@ -92,9 +99,11 @@ cdn_update = rho;
 
 %---cardinality prediction
 %surviving cardinality distribution
-survive_cdn_predict = zeros(filter.N_max+1,1);
-survival_factor= sum(w_update)/(sum(w_update)+Nc_update)*vo_model.P_S + Nc_update/(sum(w_update)+Nc_update)*vo_model.clutter_P_S;
-if isnan(survival_factor), survival_factor=0; end %catch the degernerate zero case
+survive_cdn_predict = zeros(filter.N_max+1, 1);
+survival_factor= sum(w_update) / (sum(w_update) + Nc_update)*vo_model.P_S + Nc_update/(sum(w_update)+Nc_update)*vo_model.clutter_P_S;
+if isnan(survival_factor)
+    survival_factor = 0;
+end
 
 % TODO: this if block added in to help prevent NaNs - so
 if survival_factor == 0
@@ -113,7 +122,7 @@ for j=0:filter.N_max
     survive_cdn_predict(idxj) = sum(terms);
 end
 
-%predicted cardinality= convolution of birth and surviving cardinality distribution
+%predicted cardinality = convolution of birth and surviving cardinality distribution
 cdn_predict = zeros(filter.N_max+1,1);
 lambda_b = sum(vo_model.w_birth)+vo_model.lambda_cb;
 for n=0:filter.N_max
