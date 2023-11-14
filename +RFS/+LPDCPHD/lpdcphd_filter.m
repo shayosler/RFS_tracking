@@ -47,10 +47,10 @@ pd1 = model.pd1;        % Target detection probability
 Q = model.Q;            % Process noise, NxN
 F = model.F;            % State transition matrix x[k+1] = Fx[k], NxN
 kappa = model.kappa;    % Spatial likelihood of clutter
-
+k_beta = model.kB;      % "Dilation" constant for beta distribution
 
 % Extract params
-Jmax = params.Jmax;
+Jmax = params.Jmax; 
 T = params.T;
 U = params.U;
 w_min = params.w_min;
@@ -62,7 +62,7 @@ w_min = params.w_min;
 %   + birth intensity (= gamma)
 
 %% Predict target intensity
-% propagate each element in the  target RFS forward (survival intensity)
+% Propagate each gaussian mixture element in the  target RFS forward (survival intensity)
 P_k = v1.P;
 m_k = v1.m;
 m_kk1 = zeros(size(v1.m));
@@ -73,8 +73,15 @@ for j = 1:Jk
     P_kk1(:, :, j) = Q + F*P_k(:, :, j)*F';
 end
 
-% Full prediction is sum of births and propagation
-v1_kk1 = gamma1 + RFS.utils.GMRFS(m_kk1, P_kk1, ps1.*v1.w);
+% Predict beta part of distribution
+mu_beta = [v1.s] ./ ([v1.s] + [v1.t]);
+sigsq_beta = k_beta * ([v1.s] .* [v1.t]) ./ ( ([v1.s] + [v1.t]).^2 .* ([v1.s] + [v1.t] + 1));
+mm = ((mu_beta .* (1 - mu_beta)) / sigsq_beta) - 1;
+s_kk1 = mm .* mu_beta;
+t_kk1 = mm .* (1 - mu_beta);
+
+% Predicted target RFS:
+v1_kk1 = gamma1 + RFS.utils.BGMRFS(ps1.*v1.w, m_kk1, P_kk1, s_kk1, t_kk1);
 P_kk1 = v1_kk1.P;
 m_kk1 = v1_kk1.m;
 
@@ -82,6 +89,7 @@ m_kk1 = v1_kk1.m;
 v0_kk1 = ps0 * v0 + gamma0;
 
 %% Predict hybrid cardinality distribution
+% Survival factor
 if sum(v.w) + N0 == 0
     phi = 0;
 else
@@ -89,19 +97,19 @@ else
 end
 
 % Variables as named by vo:
-w_update = v.w;
-Nc_update = N0;
-vo_model.P_S = ps1;
-vo_model.clutter_P_S = ps0;
-filter.N_max = length(rho) - 1;
-vo_model.w_birth = model.gamma1.w;
-vo_model.lambda_cb = model.Ngamma0;
-cdn_update = rho;
+%w_update = v.w;
+%Nc_update = N0;
+%vo_model.P_S = ps1;
+%vo_model.clutter_P_S = ps0;
+%vo_model.w_birth = model.gamma1.w;
+%vo_model.lambda_cb = model.Ngamma0;
+%cdn_update = rho;
 
 %---cardinality prediction
 %surviving cardinality distribution
-survive_cdn_predict = zeros(filter.N_max+1, 1);
-survival_factor= sum(w_update) / (sum(w_update) + Nc_update)*vo_model.P_S + Nc_update/(sum(w_update)+Nc_update)*vo_model.clutter_P_S;
+N_max = length(rho) - 1;
+survive_cdn_predict = zeros(N_max+1, 1);
+survival_factor = sum(v.w) / (sum(v.w) + N0)*ps1 + N0 / (sum(v.w) + N0)*ps0;
 if isnan(survival_factor)
     survival_factor = 0;
 end
@@ -113,22 +121,22 @@ else
     log_survival_factor = log(survival_factor);
 end
 
-for j=0:filter.N_max
+for j=0:N_max
     idxj=j+1;
-    terms= zeros(filter.N_max+1,1);
-    for ell=j:filter.N_max
+    terms= zeros(N_max+1,1);
+    for ell=j:N_max
         idxl= ell+1;
-        terms(idxl) = exp(sum(log(1:ell))-sum(log(1:j))-sum(log(1:ell-j))+j*log_survival_factor+(ell-j)*log(1-survival_factor))*cdn_update(idxl);
+        terms(idxl) = exp(sum(log(1:ell))-sum(log(1:j))-sum(log(1:ell-j))+j*log_survival_factor+(ell-j)*log(1-survival_factor))*rho(idxl);
     end
     survive_cdn_predict(idxj) = sum(terms);
 end
 
 %predicted cardinality = convolution of birth and surviving cardinality distribution
-cdn_predict = zeros(filter.N_max+1,1);
-lambda_b = sum(vo_model.w_birth)+vo_model.lambda_cb;
-for n=0:filter.N_max
+cdn_predict = zeros(N_max+1,1);
+lambda_b = sum(model.gamma1.w) + model.Ngamma0;
+for n=0:N_max
     idxn=n+1;
-    terms= zeros(filter.N_max+1,1);
+    terms= zeros(N_max+1,1);
     for j=0:n
         idxj= j+1;
         terms(idxj)= exp(-sum(lambda_b)+(n-j)*log(lambda_b)-sum(log(1:n-j)))*survive_cdn_predict(idxj);
