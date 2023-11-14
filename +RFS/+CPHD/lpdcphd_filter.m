@@ -4,18 +4,18 @@ function [state_k, Xhat, lambda_hat, pd_hat] = lpdcphd_filter(state, measurement
 % (lambda-pD-CPHD filter)
 % Based on: https://ieeexplore.ieee.org/document/5730505
 % Inputs:
-%   state       cphd_state object containing the previous state of the system
-%   measurement cphd_measurement object containing the measurement(s) for 
+%   state       lpdcphd_state object containing the previous state of the system
+%   measurement lpdcphd_measurement object containing the measurement(s) for 
 %               the current time step
-%   model       cphd_model object defining the model for the system
-%   params      cphd_params object defining the system parameters
+%   model       lpdcphd_model object defining the model for the system
+%   params      lpdcphd_params object defining the system parameters
 %   
 % Outputs:
-%   state_k     cphd_state object containing the estimated current state of
+%   state_k     lpdcphd_state object containing the estimated current state of
 %               the system
 %   Xhat        Estimated target locations
 %   lambda_hat  Estimated clutter rate
-%   pd_hat     Estimated target detection rate
+%   pd_hat      Estimated target detection rate
 
 %if isscalar(pd)
 %    pd = @(m) pd;
@@ -25,8 +25,7 @@ function [state_k, Xhat, lambda_hat, pd_hat] = lpdcphd_filter(state, measurement
 %end
 
 % Extract state
-v0 = state.v0;
-v1 = state.v1;
+v = state.v;
 N0 = state.N0;
 rho = state.rho;
 if ~isvector(rho)
@@ -38,7 +37,7 @@ end
 % 1 suffix -> targets
 % delt suffix -> part of augmented state space associated with detection
 % prob
-gamma0 = model.Ngamma0; % Mean number of clutter generator births
+Ngamma0 = model.Ngamma0;% Mean number of clutter generator births
 gamma1 = model.gamma1;  % Target birth model, filter assumes birth process is Poisson
 ps0 = model.ps0;        % Clutter generator survival probability
 ps1 = model.ps1;        % Target survival probability
@@ -61,27 +60,31 @@ w_min = params.w_min;
 %   + spawn intensity (= 0)
 %   + birth intensity (= gamma)
 
-%% Predict target intensity
-% propagate each element in the  target RFS forward (survival intensity)
-P_k = v1.P;
-m_k = v1.m;
-m_kk1 = zeros(size(v1.m));
-P_kk1 = zeros(size(v1.P));
+% survival intensity
+% propagate each element in the RFS forward
+P_k = v.P;
+m_k = v.m;
+m_kk1 = zeros(size(v.m));
+P_kk1 = zeros(size(v.P));
 Jk = v.J;
 for j = 1:Jk
     m_kk1(:, j) = F*m_k(:, j);
     P_kk1(:, :, j) = Q + F*P_k(:, :, j)*F';
 end
 
+% Predict beta distribution
+mu_beta = [v1.s] ./ ([v1.s] + [v1.t]);
+
 % Full prediction is sum of births and propagation
-v1_kk1 = gamma1 + RFS.utils.GMRFS(m_kk1, P_kk1, ps1.*v1.w);
-P_kk1 = v1_kk1.P;
-m_kk1 = v1_kk1.m;
+v_kk1 = gamma1 + RFS.utils.GMRFS(ps1.*v.w, m_kk1, P_kk1, s_kk1, t_kk1);
+P_kk1 = v_kk1.P;
+m_kk1 = v_kk1.m;
 
-%% Predict clutter intensity
-v0_kk1 = ps0 * v0 + gamma0;
+% Predict number of clutter generators: clutter birth + clutter survival
+N0_kk1 = Ngamma0 + ps0 * N0;
 
-%% Predict hybrid cardinality distribution
+% Predict hybrid cardinality distribution
+% Survival factor
 if sum(v.w) + N0 == 0
     phi = 0;
 else
@@ -89,19 +92,19 @@ else
 end
 
 % Variables as named by vo:
-w_update = v.w;
-Nc_update = N0;
-vo_model.P_S = ps1;
-vo_model.clutter_P_S = ps0;
-filter.N_max = length(rho) - 1;
-vo_model.w_birth = model.gamma1.w;
-vo_model.lambda_cb = model.Ngamma0;
-cdn_update = rho;
+%w_update = v.w;
+%Nc_update = N0;
+%vo_model.P_S = ps1;
+%vo_model.clutter_P_S = ps0;
+%vo_model.w_birth = model.gamma1.w;
+%vo_model.lambda_cb = model.Ngamma0;
+%cdn_update = rho;
 
 %---cardinality prediction
-%surviving cardinality distribution
-survive_cdn_predict = zeros(filter.N_max+1, 1);
-survival_factor= sum(w_update) / (sum(w_update) + Nc_update)*vo_model.P_S + Nc_update/(sum(w_update)+Nc_update)*vo_model.clutter_P_S;
+% surviving cardinality distribution
+N_max = length(rho) - 1;
+survive_cdn_predict = zeros(N_max+1, 1);
+survival_factor = sum(v.w) / (sum(v.w) + N0)*ps1 + N0 / (sum(v.w) + N0)*ps1;
 if isnan(survival_factor)
     survival_factor = 0;
 end
@@ -113,29 +116,30 @@ else
     log_survival_factor = log(survival_factor);
 end
 
-for j=0:filter.N_max
+for j=0:N_max
     idxj=j+1;
-    terms= zeros(filter.N_max+1,1);
-    for ell=j:filter.N_max
+    terms= zeros(N_max+1,1);
+    for ell=j:N_max
         idxl= ell+1;
-        terms(idxl) = exp(sum(log(1:ell))-sum(log(1:j))-sum(log(1:ell-j))+j*log_survival_factor+(ell-j)*log(1-survival_factor))*cdn_update(idxl);
+        terms(idxl) = exp(sum(log(1:ell))-sum(log(1:j))-sum(log(1:ell-j))+j*log_survival_factor+(ell-j)*log(1-survival_factor))*rho(idxl);
     end
     survive_cdn_predict(idxj) = sum(terms);
 end
 
-%predicted cardinality = convolution of birth and surviving cardinality distribution
+% predicted cardinality = convolution of birth and surviving cardinality distribution
 cdn_predict = zeros(filter.N_max+1,1);
-lambda_b = sum(vo_model.w_birth)+vo_model.lambda_cb;
-for n=0:filter.N_max
+lambda_b = sum(model.gamma1.w) + model.Ngamma0;
+for n=0:N_max
     idxn=n+1;
-    terms= zeros(filter.N_max+1,1);
+    terms= zeros(N_max+1,1);
     for j=0:n
         idxj= j+1;
         terms(idxj)= exp(-sum(lambda_b)+(n-j)*log(lambda_b)-sum(log(1:n-j)))*survive_cdn_predict(idxj);
     end
     cdn_predict(idxn) = sum(terms);
 end
-%normalize predicted cardinality distribution
+
+% normalize predicted cardinality distribution
 cdn_predict = cdn_predict/sum(cdn_predict);
 rho_kk1 = cdn_predict;
 
@@ -151,7 +155,7 @@ H = measurement.H;
 % TODO: if R and/or H get updated so they can vary with each measurement 
 % in Z then this will need to get moved into the other loop
 Jz = size(Z, 2);
-Jkk1 = v1_kk1.J;
+Jkk1 = v_kk1.J;
 n_obs = size(Z, 1); % dimensionality of each observation
 n_states = size(m_kk1, 1); % dimensionality of state vector
 P_kk = zeros(size(P_k));
@@ -172,7 +176,7 @@ end
 % total objects that are "missed" by the observation
 sum_w_kk1 = 0;
 for l = 1:Jkk1
-    sum_w_kk1 = sum_w_kk1 + v1_kk1.w(l);
+    sum_w_kk1 = sum_w_kk1 + v_kk1.w(l);
 end
 phi_kk1 = 1 - (pd1 * sum_w_kk1 + pd0 * N0_kk1) / (sum_w_kk1 + N0_kk1);
 
@@ -219,7 +223,7 @@ for jz = 1:Jz
     for l = 1:Jkk1
         m_kk1l = m_kk1(:, l);
         P_kk1l = P_kk1(:, :, l);
-        wkl = v1_kk1.w(l);
+        wkl = v_kk1.w(l);
         sum_likelihood = sum_likelihood + wkl * mvnpdf(z, H*m_kk1l, R + H*P_kk1l*H');
     end
 
@@ -243,7 +247,7 @@ for jz = 1:Jz
         qz = mvnpdf(z, H*m_kk1j, R + H*P_kk1j*H');
 
         % Updated weights
-        wkz(j) = (pd1 * v1_kk1.w(j) * qz) / weight_denom;
+        wkz(j) = (pd1 * v_kk1.w(j) * qz) / weight_denom;
         if wkz(j) >= 1 || wkz(j) < 0
             warning('Suspicious weight')
         end
@@ -261,7 +265,7 @@ end
 psi_rho_weights = psi_rho_ratio / (sum_w_kk1 + N0_kk1);
 
 % qd = 1-pd
-v_k_unpruned = (1 - pd1) * psi_rho_weights .*  v1_kk1 + sum_vD;
+v_k_unpruned = (1 - pd1) * psi_rho_weights .*  v_kk1 + sum_vD;
 N0_k = N0_kk1 * ((1 - pd0) * psi_rho_weights + sum_Nk); 
 
 %% Prune

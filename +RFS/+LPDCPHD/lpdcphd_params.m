@@ -1,5 +1,5 @@
-classdef cphd_params
-    %CPHD_PARAMS Parameters controlling the behavior of a Cardinalized 
+classdef lpdcphd_params
+    %LPDCPHD_PARAMS Parameters controlling the behavior of a Cardinalized 
     % Probability Hypothesis Density filter
 
     properties

@@ -1,4 +1,4 @@
-classdef BGRFS
+classdef BGMRFS
     % Beta-Gaussian Mixture Random Finite Set
     % beta(x) = x^(s-1)(1-x)^(t-1)
     properties
@@ -11,7 +11,7 @@ classdef BGRFS
     end
 
     methods
-        function d = GMRFS(mu, sigma, w, s, t)
+        function d = BGMRFS(w, mu, sigma, s, t)
             if (nargin == 0) || ...
                     (isempty(mu) && isempty(sigma) && isempty(w) && isempty(s) && isempty(t))
                 d.J = 0;
@@ -29,10 +29,10 @@ classdef BGRFS
             if length(w) ~= numel(w) || length(w) ~= d.J
                 error('Invalid p')
             end
-            if ~isvector(s) || length(s) ~= N
+            if ~isvector(s) || length(s) ~= d.J
                 error('Invalid s')
             end
-            if ~isvector(t) || length(t) ~= N
+            if ~isvector(t) || length(t) ~= d.J
                 error('Invalid t')
             end
             w = reshape(w, d.J, 1);
@@ -44,7 +44,7 @@ classdef BGRFS
         end
 
         function d = plus(first, second)
-            % Add two GMRFS objects. The result is a GMRFS object
+            % Add two BGMRFS objects. The result is a BGMRFS object
             % containing the components from both operands
             if first.J == 0
                 d = second;
@@ -56,7 +56,7 @@ classdef BGRFS
                 new_w = [first.w; second.w];
                 new_s = [first.s; second.s];
                 new_t = [first.t; second.t];
-                d = RFS.utils.BGRFS(new_mu, new_sigma, new_w, new_s, new_t);
+                d = RFS.utils.BGMRFS(new_w, new_mu, new_sigma, new_s, new_t);
             end
         end
 

@@ -1,5 +1,5 @@
-classdef cphd_measurement
-    %cphd_measurement One measurement for a Cardinalized Probability 
+classdef lpdcphd_measurement
+    %LPDCPHD_MEASUREMENT One measurement for a Cardinalized Probability 
     % Hypothesis Density filter
 
     properties                

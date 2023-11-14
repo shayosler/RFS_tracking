@@ -1,5 +1,5 @@
-classdef cphd_model
-    %CPHD_MODEL System model for a Cardinalized Probability Hypothesis 
+classdef lpdcphd_model
+    %LPDCPHD_MODEL System model for a Cardinalized Probability Hypothesis 
     % Density filter
 
     properties
@@ -9,7 +9,7 @@ classdef cphd_model
         ps1         % Target survival probability
         pd0         % Clutter generator detection probability
         pd1         % Target detection probability
-        Ngamma0     % Mean number of clutter generator births
+        gamma0      % Clutter birth model
         gamma1      % Target birth model, filter assumes birth process is Poisson
         kappa       % Spatial likelihood of clutter
     end
