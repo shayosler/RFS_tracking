@@ -12,8 +12,8 @@ classdef lpdcphd_model
         ps1         % Target survival probability
         pd0         % Clutter generator detection probability
         pd1         % Target detection probability
-        gamma0      % Clutter birth model
-        gamma1      % Target birth model, filter assumes birth process is Poisson
+        gamma0  RFS.utils.BGMRFS    % Clutter birth model
+        gamma1  RFS.utils.BMRFS     % Target birth model, filter assumes birth process is Poisson
         kappa       % Spatial likelihood of clutter
     end
 

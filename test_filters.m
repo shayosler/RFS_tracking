@@ -20,10 +20,10 @@ F = [1  sim_dt  0  0;
 Q = diag([.1 0 .1 0]) * 0;
 
 % Detection and survival probabilities
-pd0 = 0.2;  % Probability of detecting a "clutter" generator
-pd1 = .99;  % Probability of detecting a target
-ps0 = 0.9;  % Probability of clutter generator survival
-ps1 = .9; % Probability of target survival
+true_pd0 = 0.2; % Probability of detecting a "clutter" generator
+true_pd1 = .99; % Probability of detecting a target
+true_ps0 = 0.9; % Probability of clutter generator survival
+true_ps1 = .9;  % Probability of target survival
 
 % Sensor
 sensor = RFS.sim.Sonar_RB;
@@ -32,7 +32,7 @@ sensor.range = 40;
 sensor.sigma_range = .25;
 sensor.sigma_bearing = 1;
 sensor.lambda = 10;
-sensor.pd = pd1;
+sensor.pd = true_pd1;
 
 % Measurements
 % True R matrix for a measurement directly ahead
@@ -69,7 +69,7 @@ end
 
 % Plot map
 map_fig = figure;
-h_map = RFS.utils.plot_targets(targets, 'b*'); %  plot(map(:, 2), map(:, 1), 'b*');
+h_map = RFS.utils.plot_targets(targets, 'b*'); 
 hold on
 title 'Target Locations'
 set(gca, 'Fontsize', 18)
@@ -77,33 +77,24 @@ axis equal;
 axis(bounds)
 delete(h_map)
 
-%% l-CPHD Filtering parameters
-lcphd_params = RFS.CPHD.cphd_params();
-lcphd_params.Nmax = 100;      % Maximum number of tracked objects
-lcphd_params.U = 4;           % Threshold for merging components during pruning
-lcphd_params.T = 1e-5;        % Threshold for discarding components during pruning
-lcphd_params.Jmax = 100;      % Maximum number of components to keep during pruning
-lcphd_params.w_min = 0.5;     % Minimum weight to track
+%% Some models/parameters that will be used in multiple filters
 
-%% System model used for filtering
+% Dynamics model
 n_states = 2;
-model = RFS.CPHD.cphd_model();
+model_F = eye(n_states);
+model_Q = 5 * eye(n_states);
 
-% Target dynamics
-model.F = eye(n_states);
-model.Q = .5 * eye(n_states);
-
-% Detection and survival probabilities
-model.pd0 = pd0;    % Probability of detecting a "clutter" object
-model.pd1 = pd1;    % Probability of detecting a target
-model.ps0 = ps0;    % Probability of clutter survival
-model.ps1 = ps1;    % Probability of target survival
+% Detection/survival probabilities
+model_pd0 = true_pd0;
+model_pd1 = true_pd1;
+model_ps0 = true_ps0;
+model_ps1 = true_ps1;
 
 % Target birth model
 %bm = load('./models/birth_model_100.mat');
 bm = load('./models/birth_model_200_uniform_rb.mat');
 birth_rate = 0.01; % Expected rate of new births
-model.gamma1 = birth_rate .* bm.gamma;
+birth_gmrfs = birth_rate * bm;
 
 % Sensor/measurement model
 sigma_rb = [.25 0;   % range
@@ -115,9 +106,60 @@ R(2, 2) = sensor.range * sind(sigma_rb(2, 2));
 R = R_0deg_true;
 H = eye(n_states);
 
+%% l-CPHD Filter
+% Filter parameters 
+lcphd_params = RFS.CPHD.cphd_params();
+lcphd_params.Nmax = 100;      % Maximum number of tracked objects
+lcphd_params.U = 4;           % Threshold for merging components during pruning
+lcphd_params.T = 1e-5;        % Threshold for discarding components during pruning
+lcphd_params.Jmax = 100;      % Maximum number of components to keep during pruning
+lcphd_params.w_min = 0.5;     % Minimum weight to track
+
+% l-CPHD system model 
+lcphd_model = RFS.CPHD.cphd_model();
+
+% Target dynamics
+lcphd_model.F = model_F;
+lcphd_model.Q = model_Q;
+
+% Detection and survival probabilities
+lcphd_model.pd0 = model_pd0;    % Probability of detecting a "clutter" object
+lcphd_model.pd1 = model_pd1;    % Probability of detecting a target
+lcphd_model.ps0 = model_ps0;    % Probability of clutter survival
+lcphd_model.ps1 = model_ps1;    % Probability of target survival
+
+% Birth model
+lcphd_model.gamma1 = birth_rate .* bm.gamma;
+
 % clutter
-model.Ngamma0 = 5;        % Mean clutter birth rate, lower -> smaller lambda_hat (or maybe just takes longer to converge?)
-model.kappa = 1 / A_fov;    % Clutter is equally likely anywhere
+lcphd_model.Ngamma0 = 5;        % Mean clutter birth rate, lower -> smaller lambda_hat (or maybe just takes longer to converge?)
+lcphd_model.kappa = 1 / A_fov;    % Clutter is equally likely anywhere
+
+%% l-pD-CPHD Filter
+lpdcphf_model = RFS.LPDCPHD.lpdcphd_model();
+
+% Target dynamics
+lpdcphd_model.F = model_F;
+lpdcphd_model.Q = model_Q;
+
+% Detection and survival probabilities
+lpdcphd_model.pd0 = model_pd0;    % Probability of detecting a "clutter" object
+lpdcphd_model.pd1 = model_pd1;    % Probability of detecting a target
+lpdcphd_model.ps0 = model_ps0;    % Probability of clutter survival
+lpdcphd_model.ps1 = model_ps1;    % Probability of target survival
+
+% Target birth model
+gamma_s = ones(size(bm.w));
+gamma_t = gamma_s;
+lpdcphd_model.gamma1 = RFS.utils.BGMRFS(birth_gmrfs.w, birth_gmrfs.m, birth_gmrfs.P, gamma_s, gamma_t);
+
+% Clutter birth model
+% TODO: put in something real for this
+lpdcphd_model.gamma0 = RFS.utils(bm.w, gamma_s, gamma_t);
+
+% Dilation constant for beta distributions
+lpdcphd_model.kB = 1;
+
 
 %% Simulate
 t_total = 300;
@@ -145,6 +187,9 @@ lcphd_states(1).rho = ones(lcphd_params.Nmax + 1, 1) ./ (lcphd_params.Nmax + 1);
 gmphd_v(sim_steps) = RFS.utils.GMRFS();
 gmphd_N = zeros(sim_steps, 1);
 gmphd_Xhat = cell(sim_steps, 1);
+
+% Initial conditions and storage for l-pd-CPHD
+lpdcphd_states(sim_steps, 1) = RFS.LPDCPHD.lpdcphd_state;
 
 % Figures for plotting
 lcphd_figures = struct();
@@ -204,18 +249,18 @@ for k = 2:sim_steps
     measurement.R = R;
 
     % Update estimates
-    [lcphd_states(k), lcphd_Xhat{k}, lambda_hat(k)] = RFS.CPHD.lcphd_filter(lcphd_states(k-1), measurement, model, lcphd_params);
+    [lcphd_states(k), lcphd_Xhat{k}, lambda_hat(k)] = RFS.CPHD.lcphd_filter(lcphd_states(k-1), measurement, lcphd_model, lcphd_params);
     [gmphd_v(k), gmphd_N(k), gmphd_Xhat{k}] = RFS.GMPHD.phd_filter(gmphd_v(k-1), ...
         gmphd_N(k-1), ...
-        model.F, ...
-        model.Q, ...
-        model.ps1, ...
-        model.pd1, ...
-        model.gamma1, ...
+        lcphd_model.F, ...
+        lcphd_model.Q, ...
+        lcphd_model.ps1, ...
+        lcphd_model.pd1, ...
+        lcphd_model.gamma1, ...
         obs{k}', ...
         H, ...
         R, ...
-        model.kappa, ...
+        lcphd_model.kappa, ...
         lcphd_params.U, ...
         lcphd_params.T, ...
         lcphd_params.Jmax, ...
