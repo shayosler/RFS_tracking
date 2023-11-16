@@ -17,7 +17,10 @@ classdef BMRFS
                 d.t = [];
                 return;
             end
-            d.J = size(w, 2);
+            if ~isvector(w)
+                error('Invalid w')
+            end
+            d.J = length(w);
             if ~isvector(s) || length(s) ~= d.J
                 error('Invalid s')
             end

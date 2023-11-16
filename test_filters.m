@@ -94,7 +94,7 @@ model_ps1 = true_ps1;
 %bm = load('./models/birth_model_100.mat');
 bm = load('./models/birth_model_200_uniform_rb.mat');
 birth_rate = 0.01; % Expected rate of new births
-birth_gmrfs = birth_rate * bm;
+birth_gmrfs = birth_rate .* bm.gamma;
 
 % Sensor/measurement model
 sigma_rb = [.25 0;   % range
@@ -149,13 +149,13 @@ lpdcphd_model.ps0 = model_ps0;    % Probability of clutter survival
 lpdcphd_model.ps1 = model_ps1;    % Probability of target survival
 
 % Target birth model
-gamma_s = ones(size(bm.w));
+gamma_s = ones(size(birth_gmrfs.w));
 gamma_t = gamma_s;
 lpdcphd_model.gamma1 = RFS.utils.BGMRFS(birth_gmrfs.w, birth_gmrfs.m, birth_gmrfs.P, gamma_s, gamma_t);
 
 % Clutter birth model
 % TODO: put in something real for this
-lpdcphd_model.gamma0 = RFS.utils(bm.w, gamma_s, gamma_t);
+lpdcphd_model.gamma0 = RFS.utils.BMRFS(birth_gmrfs.w, gamma_s, gamma_t);
 
 % Dilation constant for beta distributions
 lpdcphd_model.kB = 1;
@@ -177,7 +177,7 @@ lambda_true(1) = sensor.lambda;
 lcphd_Xhat = cell(sim_steps, 1);
 lambda_hat = zeros(sim_steps, 1);
 lambda_hat(1) = 1;
-lcphd_states(sim_steps, 1) = RFS.CPHD.cphd_state;
+lcphd_states(sim_steps, 1) = RFS.CPHD.cphd_state();
 lcphd_states(1).v = RFS.utils.GMRFS();
 lcphd_states(1).N0 = 0;
 lcphd_states(1).N1 = 0;
@@ -189,7 +189,13 @@ gmphd_N = zeros(sim_steps, 1);
 gmphd_Xhat = cell(sim_steps, 1);
 
 % Initial conditions and storage for l-pd-CPHD
-lpdcphd_states(sim_steps, 1) = RFS.LPDCPHD.lpdcphd_state;
+lpdcphd_Xhat = cell(sim_steps, 1);
+lpdcphd_states(sim_steps, 1) = RFS.LPDCPHD.lpdcphd_state();
+lpdcphd_states(1).v0 = RFS.utils.BMRFS();
+lpdcphd_states(1).v1 = RFS.utils.BGMRFS();
+lpdcphd_states(1).N0 = 0;
+lpdcphd_states(1).N1 = 0;
+lpdcphd_states(1).rho = ones(lcphd_params.Nmax + 1, 1) ./ (lcphd_params.Nmax + 1); % initial cardinality distribution is unknown
 
 % Figures for plotting
 lcphd_figures = struct();
@@ -250,6 +256,7 @@ for k = 2:sim_steps
 
     % Update estimates
     [lcphd_states(k), lcphd_Xhat{k}, lambda_hat(k)] = RFS.CPHD.lcphd_filter(lcphd_states(k-1), measurement, lcphd_model, lcphd_params);
+    [lpdcphd_states(k), lpdcphd_Xhat{k}, ~, ~] = RFS.CPHD.lpdcphd_filter(lpdcphd_states(k-1), measurement, lpdcphd_model, lcphd_params);
     [gmphd_v(k), gmphd_N(k), gmphd_Xhat{k}] = RFS.GMPHD.phd_filter(gmphd_v(k-1), ...
         gmphd_N(k-1), ...
         lcphd_model.F, ...

@@ -4,18 +4,18 @@ function [state_k, Xhat, lambda_hat, pd_hat] = lpdcphd_filter(state, measurement
 % (lambda-pD-CPHD filter)
 % Based on: https://ieeexplore.ieee.org/document/5730505
 % Inputs:
-%   state       cphd_state object containing the previous state of the system
-%   measurement cphd_measurement object containing the measurement(s) for 
+%   state       lpdcphd_state object containing the previous state of the system
+%   measurement lpdcphd_measurement object containing the measurement(s) for 
 %               the current time step
-%   model       cphd_model object defining the model for the system
-%   params      cphd_params object defining the system parameters
+%   model       lpdcphd_model object defining the model for the system
+%   params      lpdcphd_params object defining the system parameters
 %   
 % Outputs:
-%   state_k     cphd_state object containing the estimated current state of
+%   state_k     lpdcphd_state object containing the estimated current state of
 %               the system
 %   Xhat        Estimated target locations
 %   lambda_hat  Estimated clutter rate
-%   pd_hat     Estimated target detection rate
+%   pd_hat      Estimated target detection rate
 
 %if isscalar(pd)
 %    pd = @(m) pd;
@@ -50,7 +50,7 @@ kappa = model.kappa;    % Spatial likelihood of clutter
 k_beta = model.kB;      % "Dilation" constant for beta distribution
 
 % Extract params
-Jmax = params.Jmax; 
+Jmax = params.Jmax;
 T = params.T;
 U = params.U;
 w_min = params.w_min;
