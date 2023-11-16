@@ -38,7 +38,7 @@ end
 % 1 suffix -> targets
 % delt suffix -> part of augmented state space associated with detection
 % prob
-gamma0 = model.Ngamma0; % Mean number of clutter generator births
+gamma0 = model.gamma0;  % Clutter generator birth RFS
 gamma1 = model.gamma1;  % Target birth model, filter assumes birth process is Poisson
 ps0 = model.ps0;        % Clutter generator survival probability
 ps1 = model.ps1;        % Target survival probability
@@ -67,15 +67,15 @@ P_k = v1.P;
 m_k = v1.m;
 m_kk1 = zeros(size(v1.m));
 P_kk1 = zeros(size(v1.P));
-Jk = v.J;
+Jk = v1.J;
 for j = 1:Jk
     m_kk1(:, j) = F*m_k(:, j);
     P_kk1(:, :, j) = Q + F*P_k(:, :, j)*F';
 end
 
 % Predict beta part of distribution
-mu_beta = [v1.s] ./ ([v1.s] + [v1.t]);
-sigsq_beta = k_beta * ([v1.s] .* [v1.t]) ./ ( ([v1.s] + [v1.t]).^2 .* ([v1.s] + [v1.t] + 1));
+mu_beta = v1.s ./ (v1.s + v1.t);
+sigsq_beta = k_beta * (v1.s .* v1.t) ./ ( (v1.s + v1.t).^2 .* (v1.s + v1.t + 1));
 mm = ((mu_beta .* (1 - mu_beta)) / sigsq_beta) - 1;
 s_kk1 = mm .* mu_beta;
 t_kk1 = mm .* (1 - mu_beta);
@@ -86,14 +86,14 @@ P_kk1 = v1_kk1.P;
 m_kk1 = v1_kk1.m;
 
 %% Predict clutter intensity
-v0_kk1 = ps0 * v0 + gamma0;
+v0_kk1 = ps0 .* v0 + gamma0;
 
 %% Predict hybrid cardinality distribution
 % Survival factor
-if sum(v.w) + N0 == 0
+if sum(v1.w) + sum(v0.w) == 0
     phi = 0;
 else
-    phi = (ps1 * sum(v.w) + ps0 * N0) / (sum(v.w) + N0);
+    phi = (ps1 * sum(v1.w) + ps0 * sum(v0.w)) / (sum(v1.w) + sum(v0.w));
 end
 
 % Variables as named by vo:
@@ -109,16 +109,12 @@ end
 %surviving cardinality distribution
 N_max = length(rho) - 1;
 survive_cdn_predict = zeros(N_max+1, 1);
-survival_factor = sum(v.w) / (sum(v.w) + N0)*ps1 + N0 / (sum(v.w) + N0)*ps0;
-if isnan(survival_factor)
-    survival_factor = 0;
-end
 
-% TODO: this if block added in to help prevent NaNs - so
-if survival_factor == 0
-    log_survival_factor = log(eps(0));
+% Prevent NaNs 
+if phi == 0
+    log_phi = log(eps(0));
 else
-    log_survival_factor = log(survival_factor);
+    log_phi = log(phi);
 end
 
 for j=0:N_max
@@ -126,14 +122,14 @@ for j=0:N_max
     terms= zeros(N_max+1,1);
     for ell=j:N_max
         idxl= ell+1;
-        terms(idxl) = exp(sum(log(1:ell))-sum(log(1:j))-sum(log(1:ell-j))+j*log_survival_factor+(ell-j)*log(1-survival_factor))*rho(idxl);
+        terms(idxl) = exp(sum(log(1:ell))-sum(log(1:j))-sum(log(1:ell-j))+j*log_phi+(ell-j)*log(1-phi))*rho(idxl);
     end
     survive_cdn_predict(idxj) = sum(terms);
 end
 
-%predicted cardinality = convolution of birth and surviving cardinality distribution
+% predicted cardinality = convolution of birth and surviving cardinality distribution
 cdn_predict = zeros(N_max+1,1);
-lambda_b = sum(model.gamma1.w) + model.Ngamma0;
+lambda_b = sum(model.gamma1.w) + sum(model.gamma0.w); % TODO: check this
 for n=0:N_max
     idxn=n+1;
     terms= zeros(N_max+1,1);
@@ -143,7 +139,7 @@ for n=0:N_max
     end
     cdn_predict(idxn) = sum(terms);
 end
-%normalize predicted cardinality distribution
+% Normalize predicted cardinality distribution
 cdn_predict = cdn_predict/sum(cdn_predict);
 rho_kk1 = cdn_predict;
 

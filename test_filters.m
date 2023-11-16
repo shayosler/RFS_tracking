@@ -136,7 +136,7 @@ lcphd_model.Ngamma0 = 5;        % Mean clutter birth rate, lower -> smaller lamb
 lcphd_model.kappa = 1 / A_fov;    % Clutter is equally likely anywhere
 
 %% l-pD-CPHD Filter
-lpdcphf_model = RFS.LPDCPHD.lpdcphd_model();
+lpdcphd_model = RFS.LPDCPHD.lpdcphd_model();
 
 % Target dynamics
 lpdcphd_model.F = model_F;
@@ -256,7 +256,7 @@ for k = 2:sim_steps
 
     % Update estimates
     [lcphd_states(k), lcphd_Xhat{k}, lambda_hat(k)] = RFS.CPHD.lcphd_filter(lcphd_states(k-1), measurement, lcphd_model, lcphd_params);
-    [lpdcphd_states(k), lpdcphd_Xhat{k}, ~, ~] = RFS.CPHD.lpdcphd_filter(lpdcphd_states(k-1), measurement, lpdcphd_model, lcphd_params);
+    [lpdcphd_states(k), lpdcphd_Xhat{k}, ~, ~] = RFS.LPDCPHD.lpdcphd_filter(lpdcphd_states(k-1), measurement, lpdcphd_model, lcphd_params);
     [gmphd_v(k), gmphd_N(k), gmphd_Xhat{k}] = RFS.GMPHD.phd_filter(gmphd_v(k-1), ...
         gmphd_N(k-1), ...
         lcphd_model.F, ...

@@ -4,7 +4,7 @@ classdef lpdcphd_state
     properties
         v0  RFS.utils.BMRFS     % "Intensity" of the clutter RFS
         v1  RFS.utils.BGMRFS    % Intensity of the target RFS
-        N0                      % Estimated number of clutter generators TODO: do we need this and v0?
+        N0          % Estimated number of clutter generators TODO: do we need this and v0? This should be the same as sum(v0.w)
         N1          % Estimated number of targets
         rho         % Hybrid cardinality distribution, 1xn
                     % Assumes distribution is (potentially) nonzero on 
