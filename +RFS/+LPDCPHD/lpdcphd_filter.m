@@ -27,7 +27,6 @@ function [state_k, Xhat, lambda_hat, pd_hat] = lpdcphd_filter(state, measurement
 % Extract state
 v0 = state.v0;
 v1 = state.v1;
-N0 = state.N0;
 rho = state.rho;
 if ~isvector(rho)
     error 'state.rho must by a 1xN or Nx1 vector'
@@ -42,8 +41,8 @@ gamma0 = model.gamma0;  % Clutter generator birth RFS
 gamma1 = model.gamma1;  % Target birth model, filter assumes birth process is Poisson
 ps0 = model.ps0;        % Clutter generator survival probability
 ps1 = model.ps1;        % Target survival probability
-pd0 = model.pd0;        % Clutter generator detection probability
-pd1 = model.pd1;        % Target detection probability
+%pd0 = model.pd0;        % Clutter generator detection probability
+%pd1 = model.pd1;        % Target detection probability
 Q = model.Q;            % Process noise, NxN
 F = model.F;            % State transition matrix x[k+1] = Fx[k], NxN
 kappa = model.kappa;    % Spatial likelihood of clutter
