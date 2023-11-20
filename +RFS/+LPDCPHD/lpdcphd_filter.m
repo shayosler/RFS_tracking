@@ -177,7 +177,14 @@ sum_w_kk1 = 0;
 for l = 1:Jkk1
     sum_w_kk1 = sum_w_kk1 + v1_kk1.w(l);
 end
-phi_kk1 = 1 - (pd1 * sum_w_kk1 + pd0 * N0_kk1) / (sum_w_kk1 + N0_kk1);
+sum_w0_kk1 = sum(v0_kk1.w);
+sum_w1_kk1 = sum(v1_kk1.w);
+
+d0 = v0_kk1.s ./ (v0_kk1.s + v0_kk1.t);
+d1 = v1_kk1.s ./ (v1_kk1.s + v1_kk1.t);
+
+% TODO: check dimensions of w and d for this. Want dot product
+phi_kk1 = 1 - (v1_kk1.w * d1' + v0_kk1.w * d0') / (sum_w1_kk1 + sum_w0_kk1);
 
 rho_k = zeros(size(rho_kk1));
 psi0_k = zeros(size(rho_kk1));
@@ -318,12 +325,12 @@ function P = permnj(n, j)
 % P = permnj(n, j) Compute a permutation coefficient
 % P = n! / (n -j)!
 
-% "naive" implementation
+% "naive" implementation, doesn't work with large values of n, j
 %P = nchoosek(n, j) * factorial(j);
 
 % Implementation from vo
 P = exp(sum(log(1:n))-sum(log(1:n-j)));
-end
+end % P()
 
 function out = psi_ddot(u, phi, Jz, ndd)
 % PSI double dot function. I think that |Zk| in the paper
@@ -343,4 +350,4 @@ end
 % log likelihoods to avoid numerical issues
 out = exp(sum(log(1:ndd))-sum(log(1:ndd - Zk_u))+(ndd - Zk_u)*log(phi));
 
-end
+end % psi_ddot()
