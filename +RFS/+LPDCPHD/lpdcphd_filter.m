@@ -180,13 +180,14 @@ end
 sum_w0_kk1 = sum(v0_kk1.w);
 sum_w1_kk1 = sum(v1_kk1.w);
 
+% Detection probabilities
 d0 = v0_kk1.s ./ (v0_kk1.s + v0_kk1.t);
 d1 = v1_kk1.s ./ (v1_kk1.s + v1_kk1.t);
 
 % TODO: check dimensions of w and d for this. Want dot product
 phi_kk1 = 1 - (v1_kk1.w * d1' + v0_kk1.w * d0') / (sum_w1_kk1 + sum_w0_kk1);
 
-rho_k = zeros(size(rho_kk1));
+% Calculate psi0 and psi1. Not sure exactly what they represent
 psi0_k = zeros(size(rho_kk1));
 psi1_k = zeros(size(rho_kk1));
 for n = 1:length(rho_kk1)
@@ -198,6 +199,7 @@ end
 % Update cardinality distribution
 % I'm pretty sure the denominator of this equation in the paper is
 % just a normalizing term
+rho_k = zeros(size(rho_kk1));
 denom = sum(rho_kk1 .* psi0_k);
 for n = 1:length(rho_kk1)
     ndd = n - 1;
@@ -211,6 +213,12 @@ if sum(rho_k) ~= 0
     rho_k = rho_k ./ sum(rho_k);
 end
 
+% Calculate updated weights for the prediction component
+wM_k_denom = sum_w0_kk1 + sum_w1_kk1;
+psi_ratio = (psi1_kk1 * rho_kk1) / (psi0_kk1 * rho_kk1);
+wM0_k = (beta(v0_kk1.s, v0_kk1.t + 1)./beta(v0_kk1.s, v0_kk1.t)) * psi_ratio / wm_k_denom;
+wM1_k = (beta(v1_kk1.s, v1_kk1.t + 1)./beta(v1_kk1.s, v1_kk1.t)) * psi_ratio / wm_k_denom;
+
 % Update intensity RFS
 sum_vD = RFS.utils.GMRFS();
 sum_Nk = 0;
@@ -219,47 +227,37 @@ for jz = 1:Jz
     % generating a new gaussian mixture for each measurement
     z = Z(:, jz);
 
-    % Clutter likelihood
-    % TODO: non-uniform clutter probabilities
-    kappaz = kappa;
-
-    % Sum over all of the likelihoods of z given predicted m_kk1
-    % weighted by wk
-    sum_likelihood = 0;
-    for l = 1:Jkk1
-        m_kk1l = m_kk1(:, l);
-        P_kk1l = P_kk1(:, :, l);
-        wkl = v1_kk1.w(l);
-        sum_likelihood = sum_likelihood + wkl * mvnpdf(z, H*m_kk1l, R + H*P_kk1l*H');
-    end
-
-    % Denominator used for normalizing weights
-    weight_denom = (pd0 * kappaz * N0_kk1 + pd1 * sum_likelihood);
-
-    sum_Nk = sum_Nk + (pd0 * kappaz) / weight_denom;
-
     % Update each component of the RFS based on the current measurement
-    m_kkz = zeros(size(m_kk1));
-    wkz = zeros(Jkk1, 1);
+    m_kz = zeros(size(m_kk1));
+    qz = zeros(1, Jkk1);
+    kappaz = zeros(1, Jkk1);
     for j = 1:Jkk1
         Kj = K(:, :, j);
         m_kk1j = m_kk1(:, j);
+        P_kk1j = P_kk1(:, :, j);
 
         % Kalman update mean based on this measurement
-        m_kkz(:, j) = m_kk1j + Kj * (z - H*m_kk1j);
+        m_kz(:, j) = m_kk1j + Kj * (z - H*m_kk1j);
        
         % likelihood of z given current RFS component
-        P_kk1j = P_kk1(:, :, j);
-        qz = mvnpdf(z, H*m_kk1j, R + H*P_kk1j*H');
+        qz(l) = mvnpdf(z, H*m_kk1j, R + H*P_kk1j*H');
 
-        % Updated weights
-        wkz(j) = (pd1 * v1_kk1.w(j) * qz) / weight_denom;
-        if wkz(j) >= 1 || wkz(j) < 0
-            warning('Suspicious weight')
-        end
-
+        % Spatial clutter likelihood
+        kappaz(j) = kappa; % TODO: support non-uniform clutter likelihood
     end
-    sum_vD = sum_vD + RFS.utils.GMRFS(m_kkz, P_kk, wkz);
+
+    % Denominator used for normalizing weights
+    weight_denom = v0_kk1.w * d0 * kappaz + sum(v1_kk1.w .* d1 .* qz);
+
+    % Updated weights
+    wD0_k = v0_kk1.w .* (beta(v0_kk1.s + 1, v0_kk1.t) ./ beta(v0_kk1.s, v0_kk1.t)) .* kappaz ./ weight_denom;
+    wD1_k = v1_kk1.w .* (beta(v1_kk1.s + 1, v1_kk1.t) ./ beta(v1_kk1.s, v1_kk1.t)) .* qz ./weight_denom;
+    if any(wD0_k >= 1) || any(wD0_k < 0) || any(wD1_k >= 1) || any(wD1_k < 0)
+        warning('Suspicious weight')
+    end
+
+
+    sum_vD = sum_vD + RFS.utils.GMRFS(m_kz, P_kk, wkz);
 end
 
 % This ratio of inner products gets reused:
