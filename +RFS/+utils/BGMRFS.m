@@ -3,9 +3,9 @@ classdef BGMRFS
     % beta(x) = x^(s-1)(1-x)^(t-1)
     properties
         J       % Number of components, scalar
+        w       % Weights, Jx1        
         m       % Means of gaussian, NxJ
         P       % Covariances of gaussian, NxNxJ
-        w       % Weights, Jx1
         s       % Beta distribution s, Jx1
         t       % Beta distribution t, Jx1
     end

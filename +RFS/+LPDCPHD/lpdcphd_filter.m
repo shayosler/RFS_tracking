@@ -219,9 +219,11 @@ psi_ratio = (psi1_kk1 * rho_kk1) / (psi0_kk1 * rho_kk1);
 wM0_k = (beta(v0_kk1.s, v0_kk1.t + 1)./beta(v0_kk1.s, v0_kk1.t)) * psi_ratio / wm_k_denom;
 wM1_k = (beta(v1_kk1.s, v1_kk1.t + 1)./beta(v1_kk1.s, v1_kk1.t)) * psi_ratio / wm_k_denom;
 
-% Update intensity RFS
-sum_vD = RFS.utils.GMRFS();
-sum_Nk = 0;
+% Update intensity RFS. Update is weighted sum of prediction RFS, and an
+% RFS derived from each measurement
+v0_z = RFS.utils.BMRFS();
+v1_z = RFS.utils.BGMRFS();
+
 for jz = 1:Jz
     % Apply each measurement to each element of the RFS, basically
     % generating a new gaussian mixture for each measurement
@@ -255,28 +257,18 @@ for jz = 1:Jz
     if any(wD0_k >= 1) || any(wD0_k < 0) || any(wD1_k >= 1) || any(wD1_k < 0)
         warning('Suspicious weight')
     end
-
-
-    sum_vD = sum_vD + RFS.utils.GMRFS(m_kz, P_kk, wkz);
+    v0_z = v0_z + RFS.utils.BMRFS(wD0_k, v0_kk1.s + 1, v0_kk1.t);
+    v1_z = v1_z + RFS.utils.BGMRFS(wD1_k, m_kz, P_kk, v1_kk1.s + 1, v0_kk1.t);
 end
 
-% This ratio of inner products gets reused:
-if sum(psi0_k .* rho_kk1) == 0
-    psi_rho_ratio = 0;
-else
-    psi_rho_ratio = sum(psi1_k .* rho_kk1) / sum(psi0_k .* rho_kk1);
-end
-psi_rho_weights = psi_rho_ratio / (sum_w_kk1 + N0_kk1);
-
-% qd = 1-pd
-v_k_unpruned = (1 - pd1) * psi_rho_weights .*  v1_kk1 + sum_vD;
-N0_k = N0_kk1 * ((1 - pd0) * psi_rho_weights + sum_Nk); 
+v0_k_unpruned = RFS.utils.BMRFS(wM0_k, v0_kk1.s, v0_kk1.t + 1) + v0_z;
+v1_k_unpruned = RFS.utils.BGMRFS(wM1_k, v1_kk1.m, v1_kk1.P, v1_kk1.s, v1_kk1.t + 1) + v1_z;
 
 %% Prune
 v_k = RFS.utils.prune_gmphd(v_k_unpruned, T, U, Jmax); 
  
 %% Outputs
-state_k = RFS.CPHD.cphd_state();
+state_k = RFS.LPDCPHD.lpdcphd_state();
 state_k.N0 = N0_k;
 state_k.N1 = sum(v_k.w);
 state_k.v = v_k;
