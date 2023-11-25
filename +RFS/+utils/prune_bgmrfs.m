@@ -1,9 +1,11 @@
 function [v_out] = prune_bgmrfs(v, T, U, Jmax)
-%[v_out] = prune_gmphd(v, T, U, Jmax) Prune the gaussian mixture components
-% representing a random finite set. Pruning is done by removing any 
-% components with weight less than T, then merging any components that are
-% closer together than U, and finally taking the Jmax highest weighted
-% components if there are still more than Jmax
+%[v_out] = prune_bgmrfs(v, T, U, Jmax) Merge and prune the components of a
+% beta-gaussian mixture representing a representing a random finite set. 
+% Pruning is done by removing any components with weight less than T, then 
+% merging components with a Hellinger distance less than U, and finally 
+% taking the Jmax highest weighted components if there are still more than 
+% Jmax.
+%
 % Inputs
 %   v       Beta-Gaussian components representing the RFS
 %   T       Truncation threshold
@@ -46,6 +48,7 @@ while any(I)
     dist = zeros(sum(I), 1);
     for i = find(I)'
         dist(i) = (v.m(:, i) - v.m(:, j))' * ( v.P(:, :, i) \ (v.m(:, i) - v.m(:, j)));
+        dist(i) = RFS.utils.hellinger_bg(v.m(i), v.P(:, :, i), v.s(i), v.t(i), v.m(j), v.P(:, :, j), v.s(j), v.t(j));
         if dist(i) < U
             L = [L i];
         end

@@ -1,4 +1,4 @@
-function [state_k, Xhat, lambda_hat, pd_hat] = lpdcphd_filter(state, measurement, model, params)
+function [state_k, Xhat] = lpdcphd_filter(state, measurement, model, params)
 % Cardinalized PHD filter for tracking with unknown clutter model and 
 % unknown detection profile
 % (lambda-pD-CPHD filter)
@@ -14,8 +14,6 @@ function [state_k, Xhat, lambda_hat, pd_hat] = lpdcphd_filter(state, measurement
 %   state_k     lpdcphd_state object containing the estimated current state of
 %               the system
 %   Xhat        Estimated target locations
-%   lambda_hat  Estimated clutter rate
-%   pd_hat      Estimated target detection rate
 
 %if isscalar(pd)
 %    pd = @(m) pd;
@@ -41,8 +39,6 @@ gamma0 = model.gamma0;  % Clutter generator birth RFS
 gamma1 = model.gamma1;  % Target birth model, filter assumes birth process is Poisson
 ps0 = model.ps0;        % Clutter generator survival probability
 ps1 = model.ps1;        % Target survival probability
-%pd0 = model.pd0;        % Clutter generator detection probability
-%pd1 = model.pd1;        % Target detection probability
 Q = model.Q;            % Process noise, NxN
 F = model.F;            % State transition matrix x[k+1] = Fx[k], NxN
 kappa = model.kappa;    % Spatial likelihood of clutter
@@ -216,8 +212,8 @@ end
 % Calculate updated weights for the prediction component
 wM_k_denom = sum_w0_kk1 + sum_w1_kk1;
 psi_ratio = (psi1_kk1 * rho_kk1) / (psi0_kk1 * rho_kk1);
-wM0_k = (beta(v0_kk1.s, v0_kk1.t + 1)./beta(v0_kk1.s, v0_kk1.t)) * psi_ratio / wm_k_denom;
-wM1_k = (beta(v1_kk1.s, v1_kk1.t + 1)./beta(v1_kk1.s, v1_kk1.t)) * psi_ratio / wm_k_denom;
+wM0_k = (beta(v0_kk1.s, v0_kk1.t + 1)./beta(v0_kk1.s, v0_kk1.t)) * psi_ratio / wM_k_denom;
+wM1_k = (beta(v1_kk1.s, v1_kk1.t + 1)./beta(v1_kk1.s, v1_kk1.t)) * psi_ratio / wM_k_denom;
 
 % Update intensity RFS. Update is weighted sum of prediction RFS, and an
 % RFS derived from each measurement
@@ -265,17 +261,29 @@ v0_k_unpruned = RFS.utils.BMRFS(wM0_k, v0_kk1.s, v0_kk1.t + 1) + v0_z;
 v1_k_unpruned = RFS.utils.BGMRFS(wM1_k, v1_kk1.m, v1_kk1.P, v1_kk1.s, v1_kk1.t + 1) + v1_z;
 
 %% Prune
-v_k = RFS.utils.prune_gmphd(v_k_unpruned, T, U, Jmax); 
+v0_k = RFS.utils.prune_bmrfs(v0_k_unpruned, T, U, Jmax); 
+v1_k = RFS.utils.prune_bgmrfs(v1_k_unpruned, T, U, Jmax);
  
 %% Outputs
-state_k = RFS.LPDCPHD.lpdcphd_state();
-state_k.N0 = N0_k;
-state_k.N1 = sum(v_k.w);
-state_k.v = v_k;
-state_k.rho = rho_k;
+
+% (Re-)calculate detection probabilities for pruned RFSs
+pd0 = v0_k.s ./ (v0_k.s + v0_k.t);
+pd1 = v1_k.s ./ (v1_k.s + v1_k.t);
 
 % Estimated clutter rate
-lambda = N0_k * pd0;
+lambda = v0_k.w * d0';
+
+% Updated state
+state_k = RFS.LPDCPHD.lpdcphd_state();
+state_k.v0 = v0_k;
+state_k.v1 = v1_k;
+state_k.rho = rho_k;
+state_k.N0 = sum(v0_k.w);
+state_k.N1 = sum(v1_k.w);
+state_k.lambda = lambda;
+state_k.pd0 = pd0;
+state_k.pd1 = pd1;
+
 
 %% Extract a state estimate from the RFS
 % TODO: Take the round(N1) highest components? How then to handle
@@ -302,6 +310,7 @@ for i = 1:v_k.J
 end
 
 % Take up to the rounded cardinality estimate targets
+% TODO: are the components ordered by weight at this point?
 if size(Xhat, 2) > round(state_k.N1)
     Xhat = Xhat(:, 1:round(state_k.N1));
 end
@@ -310,7 +319,6 @@ end
 
 
 %% Helper Functions
-
 function P = permnj(n, j)
 % P = permnj(n, j) Compute a permutation coefficient
 % P = n! / (n -j)!
