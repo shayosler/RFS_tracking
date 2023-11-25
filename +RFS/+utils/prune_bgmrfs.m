@@ -28,9 +28,12 @@ end
 I = v.w > T;
 idxs = find(I)';
 
-w = [];
-m = [];
-P = [];
+% Pre-allocate mixture components. Shrink to size later
+w = zeros(size(v.w));
+m = zeros(size(v.m));
+P = zeros(size(v.P));
+s = zeros(size(v.s));
+t = zeros(size(v.t));
 l = 0;
 dim = size(v.m, 1);
 while any(I)
@@ -56,29 +59,40 @@ while any(I)
         Pl = Pl + v.w(i)*(v.P(:, :, i) + (ml - v.m(:, i))*(ml - v.m(:, i))');
     end
     Pl = Pl ./ wl;
-    w = [w wl];
-    m = [m ml];
-    P = cat(3, P, Pl);
+
     sigsq_beta = v.s(L) .* v.t(L) ./((v.s(L) + v.t(L)^2 .* (v.s(L) + v.t(L) + 1)))    ;
     mu_beta = v.s(L) ./ (v.s(L) + v.t(L));
     sigsq_beta_merged = 1 / wl * (v.w(L) * sigsq_beta');
     mu_beta_merged = 1 / wl * (v.w(L) * mu_beta');
-    s = 
-    t = 
+
+    com = (mu_beta_merged * (1 - mu_beta_merged) / sigsq_beta_merged) - 1;
+    sl = com * mu_beta_merged;
+    tl = com * (1 - mu_beta_merged);
+
+    w(l) = wl;
+    m(l) = [m ml];
+    P(:, :, l) = Pl;
+    s(l) = sl;
+    t(l) = tl;
 
     % Remove merged components
     I(L) = false;
     idxs = find(I)';
 end
 
-% If there are still more than Jmax components, remove the lowest weighted
-% ones
-if numel(w) > Jmax
-    [~, imax] = maxk(w, Jmax);
-    w = w(imax);
-    m = m(:, imax);
-    P = P(:, :, imax);
+% Shrink w, m, P, s, t to the desired size
+% If there are more than Jmax components, take the Jmax highest weighted
+if l > Jmax
+    num = Jmax;
+else
+    num = l;
 end
+[~, imax] = maxk(w, num);
+w = w(imax);
+m = m(:, imax);
+P = P(:, :, imax);
+s = s(:, imax);
+t = t(:, imax);
 
 % Renormalize weights so that the total weight stays constant
 sum_unpruned = sum(v.w);

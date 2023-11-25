@@ -1,5 +1,5 @@
-function [v_out] = prune_gmphd(v, T, U, Jmax)
-%[v_out] = prune_gmphd(v, T, U, Jmax) Prune the gaussian mixture components
+function [v_out] = prune_gmrfs(v, T, U, Jmax)
+%[v_out] = prune_gmrfs(v, T, U, Jmax) Prune the gaussian mixture components
 % representing a random finite set. Pruning is done by removing any 
 % components with weight less than T, then merging any components that are
 % closer together than U, and finally taking the Jmax highest weighted
@@ -65,6 +65,7 @@ while any(I)
     idxs = find(I)';
 end
 
+% If there are more than Jmax components, take the Jmax highest weighted
 if numel(w) > Jmax
     [~, imax] = maxk(w, Jmax);
     w = w(imax);
