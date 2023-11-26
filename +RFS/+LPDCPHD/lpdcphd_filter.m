@@ -166,22 +166,16 @@ for j = 1:Jkk1
     P_kk(:, :, j) = (I - Kj * H) * P_kk1j * (I - Kj * H)' + Kj * R * Kj';
 end
 
+% Detection probabilities for prediction RFSs
+d0_kk1 = v0_kk1.s ./ (v0_kk1.s + v0_kk1.t);
+d1_kk1 = v1_kk1.s ./ (v1_kk1.s + v1_kk1.t);
+
 % Phi_kk1 is 1 - ratio of expected number of detected objects (targets + clutter)
 % to estimated  total number of objects. ie its the expected fraction of 
 % total objects that are "missed" by the observation
-sum_w_kk1 = 0;
-for l = 1:Jkk1
-    sum_w_kk1 = sum_w_kk1 + v1_kk1.w(l);
-end
 sum_w0_kk1 = sum(v0_kk1.w);
 sum_w1_kk1 = sum(v1_kk1.w);
-
-% Detection probabilities
-d0 = v0_kk1.s ./ (v0_kk1.s + v0_kk1.t);
-d1 = v1_kk1.s ./ (v1_kk1.s + v1_kk1.t);
-
-% TODO: check dimensions of w and d for this. Want dot product
-phi_kk1 = 1 - (v1_kk1.w * d1' + v0_kk1.w * d0') / (sum_w1_kk1 + sum_w0_kk1);
+phi_kk1 = 1 - (v1_kk1.w' * d1_kk1 + v0_kk1.w' * d0_kk1) / (sum_w1_kk1 + sum_w0_kk1);
 
 % Calculate psi0 and psi1. Not sure exactly what they represent
 psi0_k = zeros(size(rho_kk1));
@@ -211,7 +205,7 @@ end
 
 % Calculate updated weights for the prediction component
 wM_k_denom = sum_w0_kk1 + sum_w1_kk1;
-psi_ratio = (psi1_kk1 * rho_kk1) / (psi0_kk1 * rho_kk1);
+psi_ratio = (psi1_k' * rho_kk1) / (psi0_k' * rho_kk1);
 wM0_k = (beta(v0_kk1.s, v0_kk1.t + 1)./beta(v0_kk1.s, v0_kk1.t)) * psi_ratio / wM_k_denom;
 wM1_k = (beta(v1_kk1.s, v1_kk1.t + 1)./beta(v1_kk1.s, v1_kk1.t)) * psi_ratio / wM_k_denom;
 
@@ -227,8 +221,7 @@ for jz = 1:Jz
 
     % Update each component of the RFS based on the current measurement
     m_kz = zeros(size(m_kk1));
-    qz = zeros(1, Jkk1);
-    kappaz = zeros(1, Jkk1);
+    qz = zeros(Jkk1, 1);
     for j = 1:Jkk1
         Kj = K(:, :, j);
         m_kk1j = m_kk1(:, j);
@@ -238,23 +231,23 @@ for jz = 1:Jz
         m_kz(:, j) = m_kk1j + Kj * (z - H*m_kk1j);
        
         % likelihood of z given current RFS component
-        qz(l) = mvnpdf(z, H*m_kk1j, R + H*P_kk1j*H');
-
-        % Spatial clutter likelihood
-        kappaz(j) = kappa; % TODO: support non-uniform clutter likelihood
+        qz(j) = mvnpdf(z, H*m_kk1j, R + H*P_kk1j*H');
     end
 
+    % Spatial clutter likelihood
+    kappaz = kappa; % TODO: support non-uniform clutter likelihood
+
     % Denominator used for normalizing weights
-    weight_denom = v0_kk1.w * d0 * kappaz + sum(v1_kk1.w .* d1 .* qz);
+    weight_denom = v0_kk1.w * d0_kk1 * kappaz + sum(v1_kk1.w .* d1_kk1 .* qz);
 
     % Updated weights
     wD0_k = v0_kk1.w .* (beta(v0_kk1.s + 1, v0_kk1.t) ./ beta(v0_kk1.s, v0_kk1.t)) .* kappaz ./ weight_denom;
-    wD1_k = v1_kk1.w .* (beta(v1_kk1.s + 1, v1_kk1.t) ./ beta(v1_kk1.s, v1_kk1.t)) .* qz ./weight_denom;
+    wD1_k = v1_kk1.w .* (beta(v1_kk1.s + 1, v1_kk1.t) ./ beta(v1_kk1.s, v1_kk1.t)) .* qz ./ weight_denom;
     if any(wD0_k >= 1) || any(wD0_k < 0) || any(wD1_k >= 1) || any(wD1_k < 0)
         warning('Suspicious weight')
     end
     v0_z = v0_z + RFS.utils.BMRFS(wD0_k, v0_kk1.s + 1, v0_kk1.t);
-    v1_z = v1_z + RFS.utils.BGMRFS(wD1_k, m_kz, P_kk, v1_kk1.s + 1, v0_kk1.t);
+    v1_z = v1_z + RFS.utils.BGMRFS(wD1_k, m_kz, P_kk, v1_kk1.s + 1, v1_kk1.t);
 end
 
 v0_k_unpruned = RFS.utils.BMRFS(wM0_k, v0_kk1.s, v0_kk1.t + 1) + v0_z;
@@ -266,12 +259,12 @@ v1_k = RFS.utils.prune_bgmrfs(v1_k_unpruned, T, U, Jmax);
  
 %% Outputs
 
-% (Re-)calculate detection probabilities for pruned RFSs
+% Calculate detection probabilities for pruned update RFSs
 pd0 = v0_k.s ./ (v0_k.s + v0_k.t);
 pd1 = v1_k.s ./ (v1_k.s + v1_k.t);
 
 % Estimated clutter rate
-lambda = v0_k.w * d0';
+lambda = v0_k.w * d0_kk1';
 
 % Updated state
 state_k = RFS.LPDCPHD.lpdcphd_state();

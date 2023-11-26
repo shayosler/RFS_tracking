@@ -28,6 +28,8 @@ classdef BMRFS
                 error('Invalid t')
             end
             w = reshape(w, d.J, 1);
+            s = reshape(s, d.J, 1);
+            t = reshape(t, d.J, 1);
             d.w = w;
             d.s = s;
             d.t = t;
@@ -41,12 +43,10 @@ classdef BMRFS
             elseif second.J == 0
                 d = first;
             else
-                new_mu = [first.m second.m];
-                new_sigma = cat(3, first.P, second.P);
                 new_w = [first.w; second.w];
                 new_s = [first.s; second.s];
                 new_t = [first.t; second.t];
-                d = RFS.utils.BMRFS(new_mu, new_sigma, new_w, new_s, new_t);
+                d = RFS.utils.BMRFS(new_w, new_s, new_t);
             end
         end
 

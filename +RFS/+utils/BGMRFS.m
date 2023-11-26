@@ -36,6 +36,8 @@ classdef BGMRFS
                 error('Invalid t')
             end
             w = reshape(w, d.J, 1);
+            s = reshape(s, d.J, 1);
+            t = reshape(t, d.J, 1);
             d.m = mu;
             d.P = sigma;
             d.w = w;

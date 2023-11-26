@@ -207,7 +207,7 @@ gamma_t = gamma_s;
 lpdcphd_model.gamma1 = RFS.utils.BGMRFS(birth_gmrfs.w, birth_gmrfs.m, birth_gmrfs.P, gamma_s, gamma_t);
 
 % Clutter distribution
-lcphd_model.kappa = 1 / A_fov;  % Clutter is equally likely anywhere
+lpdcphd_model.kappa = 1 / A_fov;  % Clutter is equally likely anywhere
 
 % Dilation constant for beta distributions, factor by which to enlarge
 % variance of beta distribution when predicting

@@ -47,8 +47,7 @@ while any(I)
     L = []; % Component indices to merge
     dist = zeros(sum(I), 1);
     for i = find(I)'
-        dist(i) = (v.m(:, i) - v.m(:, j))' * ( v.P(:, :, i) \ (v.m(:, i) - v.m(:, j)));
-        dist(i) = RFS.utils.hellinger_bg(v.m(i), v.P(:, :, i), v.s(i), v.t(i), v.m(j), v.P(:, :, j), v.s(j), v.t(j));
+        dist(i) = RFS.utils.hellinger_bg(v.m(:, i), v.P(:, :, i), v.s(i), v.t(i), v.m(:, j), v.P(:, :, j), v.s(j), v.t(j));
         if dist(i) < U
             L = [L i];
         end
@@ -63,14 +62,21 @@ while any(I)
     end
     Pl = Pl ./ wl;
 
-    sigsq_beta = v.s(L) .* v.t(L) ./((v.s(L) + v.t(L)^2 .* (v.s(L) + v.t(L) + 1)))    ;
+    sigsq_beta = v.s(L) .* v.t(L) ./( (v.s(L) + v.t(L)).^2 .* (v.s(L) + v.t(L) + 1) );
     mu_beta = v.s(L) ./ (v.s(L) + v.t(L));
-    sigsq_beta_merged = 1 / wl * (v.w(L) * sigsq_beta');
-    mu_beta_merged = 1 / wl * (v.w(L) * mu_beta');
+    sigsq_beta_merged = 1 / wl * (v.w(L)' * sigsq_beta);
+    mu_beta_merged = 1 / wl * (v.w(L)' * mu_beta);
 
     com = (mu_beta_merged * (1 - mu_beta_merged) / sigsq_beta_merged) - 1;
     sl = com * mu_beta_merged;
     tl = com * (1 - mu_beta_merged);
+
+    [m(:, l), P(:, :, l)] = merge_gaussian(v.w(L), v.m(:, L), v.P(:, :, L));
+    [s(l), t(l)] = merge_beta(v.w(L), v.s(L), v.t(L));
+
+    [mu_merged, P_merged] = merge_gm(v.w(L), v.m(L), v.P(:, :, L));
+    [s_merged, t_merged] = merge_bm(v.w(L), v.s(L), v.t(L));
+
 
     w(l) = wl;
     m(l) = [m ml];
