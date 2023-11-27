@@ -73,10 +73,12 @@ while any(I)
 
     [m(:, l), P(:, :, l)] = merge_gaussian(v.w(L), v.m(:, L), v.P(:, :, L));
     [s(l), t(l)] = merge_beta(v.w(L), v.s(L), v.t(L));
-
     [mu_merged, P_merged] = merge_gm(v.w(L), v.m(L), v.P(:, :, L));
     [s_merged, t_merged] = merge_bm(v.w(L), v.s(L), v.t(L));
-
+    assert(s_merged == sl);
+    assert(t_merged == tl);
+    assert(all(mu_merged == ml));
+    assert(all(all(P_merged == Pl)));
 
     w(l) = wl;
     m(l) = [m ml];

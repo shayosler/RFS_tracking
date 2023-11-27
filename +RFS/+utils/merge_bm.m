@@ -11,6 +11,18 @@ function [s_merged, t_merged] = merge_bm(w, s, t)
 %   s_merged
 %   t_merged
 
+% Check sizes
+if size(w, 2) ~= 1
+    error('w must be a column vector');
+end
+J = size(w, 1);
+if ~isvector(s) || size(s, 2) ~= J
+    error('s must represent the same number of components as w')
+end
+if ~isvector(t) || size(t, 2) ~= J
+    error('s must represent the same number of components as w')
+end
+
 sigsq_beta = s .* t ./( (s + t).^2 .* (s + t + 1) );
 mu_beta = s ./ (s + t);
 sigsq_beta_merged = 1 / wl * (w' * sigsq_beta);

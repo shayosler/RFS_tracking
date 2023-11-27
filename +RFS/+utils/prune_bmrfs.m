@@ -6,7 +6,7 @@ function [v_out] = prune_bmrfs(v, T, U, Jmax)
 % Jmax highest weighted components if there are still more than Jmax.
 %
 % Inputs
-%   v       Beta-Gaussian components representing the RFS
+%   v       Beta components representing the RFS
 %   T       Truncation threshold
 %   U       Merging threshold
 %   Jmax    Maximum number of components to have after pruning
@@ -31,8 +31,6 @@ idxs = find(I)';
 
 % Pre-allocate mixture components. Shrink to size later
 w = zeros(size(v.w));
-m = zeros(size(v.m));
-P = zeros(size(v.P));
 s = zeros(size(v.s));
 t = zeros(size(v.t));
 l = 0;
@@ -46,9 +44,7 @@ while any(I)
     L = []; % Component indices to merge
     dist = zeros(sum(I), 1);
     for i = find(I)'
-        dist(i) = (v.m(:, i) - v.m(:, j))' * ( v.P(:, :, i) \ (v.m(:, i) - v.m(:, j)));
-        dist(i) = RFS.utils.hellinger_bg(v.s(i), v.t(i), v.s(j), v.t(j));
-
+        dist(i) = RFS.utils.hellinger_beta(v.s(i), v.t(i), v.s(j), v.t(j));
         if dist(i) < U
             L = [L i];
         end
@@ -56,25 +52,17 @@ while any(I)
 
     % Merge components
     wl = sum(v.w(L));
-    ml = (1/wl) .* sum(repmat(v.w(L)', dim, 1) .* v.m(:, L), 2);
-    Pl = zeros(size(v.P(:, :, 1)));
-    for i = L
-        Pl = Pl + v.w(i)*(v.P(:, :, i) + (ml - v.m(:, i))*(ml - v.m(:, i))');
-    end
-    Pl = Pl ./ wl;
 
-    sigsq_beta = v.s(L) .* v.t(L) ./((v.s(L) + v.t(L)^2 .* (v.s(L) + v.t(L) + 1)))    ;
+    sigsq_beta = v.s(L) .* v.t(L) ./( (v.s(L) + v.t(L)).^2 .* (v.s(L) + v.t(L) + 1) );
     mu_beta = v.s(L) ./ (v.s(L) + v.t(L));
-    sigsq_beta_merged = 1 / wl * (v.w(L) * sigsq_beta');
-    mu_beta_merged = 1 / wl * (v.w(L) * mu_beta');
+    sigsq_beta_merged = 1 / wl * (v.w(L)' * sigsq_beta);
+    mu_beta_merged = 1 / wl * (v.w(L)' * mu_beta);
 
     com = (mu_beta_merged * (1 - mu_beta_merged) / sigsq_beta_merged) - 1;
     sl = com * mu_beta_merged;
     tl = com * (1 - mu_beta_merged);
 
     w(l) = wl;
-    m(l) = [m ml];
-    P(:, :, l) = Pl;
     s(l) = sl;
     t(l) = tl;
 
@@ -92,8 +80,6 @@ else
 end
 [~, imax] = maxk(w, num);
 w = w(imax);
-m = m(:, imax);
-P = P(:, :, imax);
 s = s(:, imax);
 t = t(:, imax);
 
@@ -102,5 +88,5 @@ sum_unpruned = sum(v.w);
 sum_pruned = sum(w);
 w = (sum_unpruned / sum_pruned) .* w;
 
-v_out = RFS.utils.BGMRFS(w, m, P, s, t);
+v_out = RFS.utils.BMRFS(w, s, t);
 end
