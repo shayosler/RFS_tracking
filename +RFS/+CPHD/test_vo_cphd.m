@@ -94,6 +94,7 @@ for k = 2:sim_steps
 
     % Update estimates
     [states(k), Xhat{k}, lambda(k)] = RFS.CPHD.lcphd_filter(states(k-1), measurement, model, params);
+    fprintf('t = %0.2f\n', tk);
 
     %% Plots
     if mod(k, 100) == 0
@@ -160,14 +161,14 @@ for k = 2:sim_steps
         ylabel '\rho'
         
         % Plot current intensity
-        %figure(v_fig);
-        %h_v = plotgmphd(states(k).v, northings, eastings);
-        %handles = [handles h_v];
-        %title(['PHD Intensity After t = ' num2str(k)])
-        %set(gca, 'Fontsize', 18)
-        %axis equal;
-        %axis([-30, 30, 0, 100])
-        %colorbar
+        figure(v_fig);
+        h_v = RFS.utils.plotgmphd(states(k).v, northings, eastings, 1, 3);
+        handles = [handles h_v];
+        title(['PHD Intensity After t = ' num2str(k)])
+        set(gca, 'Fontsize', 18)
+        axis equal;
+        axis([min_e, max_e, min_n, max_n])
+        colorbar
 
 
         % Clear plotted stuff
