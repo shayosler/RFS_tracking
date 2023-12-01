@@ -71,21 +71,14 @@ while any(I)
     sl = com * mu_beta_merged;
     tl = com * (1 - mu_beta_merged);
 
-    [m(:, l), P(:, :, l)] = merge_gaussian(v.w(L), v.m(:, L), v.P(:, :, L));
-    [s(l), t(l)] = merge_beta(v.w(L), v.s(L), v.t(L));
-    [mu_merged, P_merged] = merge_gm(v.w(L), v.m(L), v.P(:, :, L));
-    [s_merged, t_merged] = merge_bm(v.w(L), v.s(L), v.t(L));
-    assert(s_merged == sl);
-    assert(t_merged == tl);
-    assert(all(mu_merged == ml));
-    assert(all(all(P_merged == Pl)));
-
     w(l) = wl;
-    m(l) = [m ml];
-    P(:, :, l) = Pl;
-    s(l) = sl;
-    t(l) = tl;
-
+    [~, m(:, l), P(:, :, l)] = RFS.utils.merge_gm(v.w(L), v.m(:, L), v.P(:, :, L));
+    [~, s(l), t(l)] = RFS.utils.merge_bm(v.w(L), v.s(L), v.t(L));
+    assert(s(l) == sl);
+    assert(t(l) == tl);
+    assert(all(m(:, l) == ml));
+    assert(all(all(P(:, :, l) == Pl)));
+    
     % Remove merged components
     I(L) = false;
     idxs = find(I)';
@@ -102,8 +95,8 @@ end
 w = w(imax);
 m = m(:, imax);
 P = P(:, :, imax);
-s = s(:, imax);
-t = t(:, imax);
+s = s(imax, :);
+t = t(imax, :);
 
 % Renormalize weights so that the total weight stays constant
 sum_unpruned = sum(v.w);

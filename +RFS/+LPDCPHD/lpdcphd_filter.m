@@ -238,7 +238,7 @@ for jz = 1:Jz
     kappaz = kappa; % TODO: support non-uniform clutter likelihood
 
     % Denominator used for normalizing weights
-    weight_denom = v0_kk1.w * d0_kk1 * kappaz + sum(v1_kk1.w .* d1_kk1 .* qz);
+    weight_denom = v0_kk1.w' * d0_kk1 * kappaz + sum(v1_kk1.w .* d1_kk1 .* qz);
 
     % Updated weights
     wD0_k = v0_kk1.w .* (beta(v0_kk1.s + 1, v0_kk1.t) ./ beta(v0_kk1.s, v0_kk1.t)) .* kappaz ./ weight_denom;
@@ -254,6 +254,8 @@ v0_k_unpruned = RFS.utils.BMRFS(wM0_k, v0_kk1.s, v0_kk1.t + 1) + v0_z;
 v1_k_unpruned = RFS.utils.BGMRFS(wM1_k, v1_kk1.m, v1_kk1.P, v1_kk1.s, v1_kk1.t + 1) + v1_z;
 
 %% Prune
+% TODO: different pruning parameters for clutter only beta mixture vs 
+% beta-gaussian mixture representing targets?
 v0_k = RFS.utils.prune_bmrfs(v0_k_unpruned, T, U, Jmax); 
 v1_k = RFS.utils.prune_bgmrfs(v1_k_unpruned, T, U, Jmax);
  
@@ -292,14 +294,14 @@ Xhat = [];
 
 % Duplicate any components that represent more than 1 target
 % Remove any components that don't represent any targets
-for i = 1:v_k.J
-    n_tgts = round(v_k.w(i));
+for i = 1:v1_k.J
+    n_tgts = round(v1_k.w(i));
 
     % Don't actually remove any?
     if n_tgts < 1
         n_tgts = 1;
     end
-    Xhat = [Xhat repmat(v_k.m(:, i), 1, n_tgts)];
+    Xhat = [Xhat repmat(v1_k.m(:, i), 1, n_tgts)];
 end
 
 % Take up to the rounded cardinality estimate targets

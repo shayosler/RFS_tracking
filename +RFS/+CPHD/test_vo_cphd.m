@@ -9,14 +9,14 @@ seed = 1;
 rng(seed);
 
 %% Set up model from paper
-vo_model= gen_model;
-vo_truth= gen_truth(vo_model);
-vo_meas=  gen_meas(vo_model,vo_truth);
-vo_est=   run_filter(vo_model, vo_meas);
-handles= plot_results(vo_model, vo_truth, vo_meas, vo_est);
+vo_model= robust.lcphd.gms.gen_model;
+vo_truth= robust.lcphd.gms.gen_truth(vo_model);
+vo_meas=  robust.lcphd.gms.gen_meas(vo_model,vo_truth);
+vo_est=   robust.lcphd.gms.run_filter(vo_model, vo_meas);
+handles=  robust.lcphd.gms.plot_results(vo_model, vo_truth, vo_meas, vo_est);
 
 %% Filtering parameters (from paper)
-params = cphd_params();
+params = RFS.CPHD.cphd_params();
 params.Nmax = 300;
 params.U = 4;
 params.T = 1e-5;
@@ -25,7 +25,7 @@ params.w_min = 0.5;
 
 %% System model
 n_states = 4;
-model = cphd_model();
+model = RFS.CPHD.cphd_model();
 
 % Target dynamics
 model.F = vo_model.F;
@@ -38,7 +38,7 @@ model.ps0 = vo_model.clutter_P_S;  % Probability of clutter survival
 model.ps1 = vo_model.P_S;  % Probability of target survival
 
 % Target birth model
-model.gamma1 = GMRFS(vo_model.m_birth, vo_model.P_birth, vo_model.w_birth);
+model.gamma1 = RFS.utils.GMRFS(vo_model.m_birth, vo_model.P_birth, vo_model.w_birth);
 
 % Sensor/measurement model
 R = vo_model.R;
@@ -70,8 +70,8 @@ x = zeros(sim_steps, 12);
 Xhat = cell(sim_steps, 1);
 lambda = zeros(sim_steps, 1);
 lambda(1) = 1;
-states(sim_steps, 1) = cphd_state;
-states(1).v = GMRFS([0.1;0;0.1;0], diag([1 1 1 1]).^2, eps);
+states(sim_steps, 1) = RFS.CPHD.cphd_state;
+states(1).v = RFS.utils.GMRFS([0.1;0;0.1;0], diag([1 1 1 1]).^2, eps);
 states(1).N0 = round((size(vo_meas.Z{1},2)-vo_model.P_D*sum(vo_model.w_birth))/vo_model.clutter_P_D);
 states(1).N1 = 0;
 states(1).rho = [zeros(states(1).N0-1,1);1;zeros(params.Nmax-states(1).N0+1,1)];
@@ -87,13 +87,13 @@ for k = 2:sim_steps
     j = j+1;
 
     % Simulated observations
-    measurement = cphd_measurement();
+    measurement = RFS.CPHD.cphd_measurement();
     measurement.Z = vo_meas.Z{k-1};
     measurement.H = H;
     measurement.R = R;
 
     % Update estimates
-    [states(k), Xhat{k}, lambda(k)] = cphd_filter(states(k-1), measurement, model, params);
+    [states(k), Xhat{k}, lambda(k)] = RFS.CPHD.lcphd_filter(states(k-1), measurement, model, params);
 
     %% Plots
     if mod(k, 100) == 0

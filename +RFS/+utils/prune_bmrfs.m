@@ -34,7 +34,6 @@ w = zeros(size(v.w));
 s = zeros(size(v.s));
 t = zeros(size(v.t));
 l = 0;
-dim = size(v.m, 1);
 while any(I)
     l = l + 1;
     % Find all components that are "close" enough to the
@@ -51,20 +50,7 @@ while any(I)
     end
 
     % Merge components
-    wl = sum(v.w(L));
-
-    sigsq_beta = v.s(L) .* v.t(L) ./( (v.s(L) + v.t(L)).^2 .* (v.s(L) + v.t(L) + 1) );
-    mu_beta = v.s(L) ./ (v.s(L) + v.t(L));
-    sigsq_beta_merged = 1 / wl * (v.w(L)' * sigsq_beta);
-    mu_beta_merged = 1 / wl * (v.w(L)' * mu_beta);
-
-    com = (mu_beta_merged * (1 - mu_beta_merged) / sigsq_beta_merged) - 1;
-    sl = com * mu_beta_merged;
-    tl = com * (1 - mu_beta_merged);
-
-    w(l) = wl;
-    s(l) = sl;
-    t(l) = tl;
+    [w(l), s(l), t(l)] = RFS.utils.merge_bm(v.w(L), v.s(L), v.t(L));
 
     % Remove merged components
     I(L) = false;
@@ -80,8 +66,8 @@ else
 end
 [~, imax] = maxk(w, num);
 w = w(imax);
-s = s(:, imax);
-t = t(:, imax);
+s = s(imax, :);
+t = t(imax, :);
 
 % Renormalize weights so that the total weight stays constant
 sum_unpruned = sum(v.w);

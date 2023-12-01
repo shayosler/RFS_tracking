@@ -254,7 +254,7 @@ v_k_unpruned = (1 - pd1) * psi_rho_weights .*  v_kk1 + sum_vD;
 N0_k = N0_kk1 * ((1 - pd0) * psi_rho_weights + sum_Nk); 
 
 %% Prune
-v_k = RFS.utils.prune_gmphd(v_k_unpruned, T, U, Jmax); 
+v_k = RFS.utils.prune_gmrfs(v_k_unpruned, T, U, Jmax); 
  
 %% Outputs
 state_k = RFS.CPHD.cphd_state();

@@ -1,4 +1,4 @@
-function [mu, P] = merge_gm(w, mu_in, P_in)
+function [w_merged, mu_merged, P_merged] = merge_gm(w, mu_in, P_in)
 %merge_gm Merge components of a gaussian mixture into a single gaussian
 %
 % Inputs 
@@ -7,8 +7,9 @@ function [mu, P] = merge_gm(w, mu_in, P_in)
 %   P_in    Covariances of components to merge, NxNxJ
 %
 % Outputs
-%   mu      Mean of gaussian representing merged components, Nx1
-%   P       Covariance of gaussian representing merged components, NxN
+%   w_merged    New weight of merged gaussian
+%   mu_merged   Mean of gaussian representing merged components, Nx1
+%   P_merged    Covariance of gaussian representing merged components, NxN
 
 % Check sizes
 if size(w, 2) ~= 1
@@ -29,11 +30,11 @@ if size(P_in, 3) ~= J
 end
 
 w_merged = sum(w);
-mu = (1/w_merged) .* sum(repmat(w', dim, 1) .* mu_in, 2);
+mu_merged = (1/w_merged) .* sum(repmat(w', dim, 1) .* mu_in, 2);
 
-P = zeros(size(P_in(:, :, 1)));
+P_merged = zeros(size(P_in(:, :, 1)));
 for i = 1:length(w)
-    P = P + w(i)*(P_in(:, :, i) + (mu - mu_in(:, i))*(mu - mu_in(:, i))');
+    P_merged = P_merged + w(i)*(P_in(:, :, i) + (mu_merged - mu_in(:, i))*(mu_merged - mu_in(:, i))');
 end
-P = P ./ w_merged;
+P_merged = P_merged ./ w_merged;
 end

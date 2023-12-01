@@ -10,11 +10,11 @@ rng(seed);
 
 % Select which filters to run
 gmphd = false;
-lcphd = false;
+lcphd = true;
 lpdcphd = true;
 
 % Simulation params
-t_total = 300;
+t_total = 50; %300;
 sim_dt = 1;
 t = 0:sim_dt:t_total;
 sim_steps = numel(t);
@@ -329,7 +329,7 @@ for k = 2:sim_steps
             lcphd_handles = RFS.utils.rfs_tracker_plots(lcphd_figures, 'l-CPHD', k, lcphd_states(k).v, [n e psi], lcphd_Xhat, sensor, obs, true_obs, targets, bounds);
         end
         if lpdcphd
-            lpdcphd_handles = RFS.utils.rfs_tracker_plots(lpdcphd_figures, 'l-pd-CPHD', k, lpdcphd_states(k).v, [n e psi], lpdcphd_Xhat, sensor, obs, true_obs, targets, bounds);
+            lpdcphd_handles = RFS.utils.rfs_tracker_plots(lpdcphd_figures, 'l-pd-CPHD', k, lpdcphd_states(k).v1, [n e psi], lpdcphd_Xhat, sensor, obs, true_obs, targets, bounds);
         end
         
         rfs_handles = [lcphd_handles gmphd_handles lpdcphd_handles];
@@ -344,11 +344,14 @@ if gmphd
 end
 
 if lcphd
-    lcphd_handles = RFS.utils.rfs_tracker_plots(lcphd_figures, 'l-CPHD', k, lcphd_states(k).v, [n e psi], lcphd_Xhat, sensor, obs, true_obs, targets, bounds);
+    lcphd_tracker_h = RFS.utils.rfs_tracker_plots(lcphd_figures, 'l-CPHD', k, lcphd_states(k).v, [n e psi], lcphd_Xhat, sensor, obs, true_obs, targets, bounds);
     % l-CPHD specific plots
-    RFS.CPHD.lcphd_plots(lcpdh_figures, k, targets, lcphd_Xhat, lambda_hat, lambda_true);
+    lcphd_h = RFS.CPHD.lcphd_plots(lcpdh_figures, k, targets, lcphd_Xhat, lambda_hat, lambda_true);
+    lcphd_handles = [lcphd_tracker_h, lcphd_h];
 end
 
 if lpdcphd
-    lpdcphd_handles = RFS.utils.rfs_tracker_plots(lpdcphd_figures, 'l-pd-CPHD', k, lpdcphd_states(k).v, [n e psi], lpdcphd_Xhat, sensor, obs, true_obs, targets, bounds);
+    %lcphd_h = RFS.CPHD.lcphd_plots(lcpdh_figures, k, targets, lcphd_Xhat, lambda_hat, lambda_true);
+
+    lpdcphd_tracker_h = RFS.utils.rfs_tracker_plots(lpdcphd_figures, 'l-pd-CPHD', k, lpdcphd_states(k).v1, [n e psi], lpdcphd_Xhat, sensor, obs, true_obs, targets, bounds);
 end

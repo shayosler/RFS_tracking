@@ -12,7 +12,7 @@ for g = 1:dist.J
     p = p + dist.w(g) * mvnpdf([X(:) Y(:)], dist.m(:, g)', dist.P(:, :, g));
 end
 
-p = reshape(p,size(X));
+p = reshape(p, size(X));
 %h = pcolor(X,Y,p);
 h = pcolor(Y, X, p);
 shading interp;
