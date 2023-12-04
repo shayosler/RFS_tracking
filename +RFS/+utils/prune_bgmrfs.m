@@ -61,6 +61,7 @@ while any(I)
         Pl = Pl + v.w(i)*(v.P(:, :, i) + (ml - v.m(:, i))*(ml - v.m(:, i))');
     end
     Pl = Pl ./ wl;
+    Pl = RFS.utils.make_symmetric(Pl);
 
     sigsq_beta = v.s(L) .* v.t(L) ./( (v.s(L) + v.t(L)).^2 .* (v.s(L) + v.t(L) + 1) );
     mu_beta = v.s(L) ./ (v.s(L) + v.t(L));

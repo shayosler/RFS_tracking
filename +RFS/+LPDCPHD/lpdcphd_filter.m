@@ -65,7 +65,8 @@ P_kk1 = zeros(size(v1.P));
 Jk = v1.J;
 for j = 1:Jk
     m_kk1(:, j) = F*m_k(:, j);
-    P_kk1(:, :, j) = Q + F*P_k(:, :, j)*F';
+    P_pred = Q + F*P_k(:, :, j)*F';
+    P_kk1(:, :, j) = RFS.utils.make_symmetric(P_pred);
 end
 
 % Predict beta part of distribution
@@ -100,8 +101,7 @@ end
 %vo_model.lambda_cb = model.Ngamma0;
 %cdn_update = rho;
 
-%---cardinality prediction
-%surviving cardinality distribution
+% surviving cardinality distribution
 N_max = length(rho) - 1;
 survive_cdn_predict = zeros(N_max+1, 1);
 
@@ -163,7 +163,8 @@ for j = 1:Jkk1
 
     % Updated estimate covariances
     I = eye(size(P_kk1j));
-    P_kk(:, :, j) = (I - Kj * H) * P_kk1j * (I - Kj * H)' + Kj * R * Kj';
+    P_kkj = (I - Kj * H) * P_kk1j * (I - Kj * H)' + Kj * R * Kj';
+    P_kk(:, :, j) = RFS.utils.make_symmetric(P_kkj);
 end
 
 % Detection probabilities for prediction RFSs

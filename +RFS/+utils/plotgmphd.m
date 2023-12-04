@@ -8,7 +8,7 @@ function [h] = plotgmphd(dist, x, y, x_ind, y_ind)
 %   x_ind   Index in the state array of the "x" component
 %   y_ind   Index in the state array of the "y" component
 
-if nargin < 4 && numel(dist.m) == 2
+if nargin < 4 && size(dist.m, 1) == 2
     x_ind = 1;
     y_ind = 2;
 end

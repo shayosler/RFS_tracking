@@ -10,7 +10,7 @@ rng(seed);
 
 % Select which filters to run
 gmphd = false;
-lcphd = true;
+lcphd = false;
 lpdcphd = true;
 
 % Simulation params
@@ -152,8 +152,6 @@ lcphd_model.F = model_F;
 lcphd_model.Q = model_Q;
 
 % Detection and survival probabilities
-lcphd_model.pd0 = model_pd0;    % Probability of detecting a "clutter" object
-lcphd_model.pd1 = model_pd1;    % Probability of detecting a target
 lcphd_model.ps0 = model_ps0;    % Probability of clutter survival
 lcphd_model.ps1 = model_ps1;    % Probability of target survival
 
@@ -324,15 +322,16 @@ for k = 2:sim_steps
         delete(rfs_handles);
         if gmphd
             gmphd_handles = RFS.utils.rfs_tracker_plots(gmphd_figures, 'GMPHD', k, gmphd_v(k), [n e psi], gmphd_Xhat, sensor, obs, true_obs, targets, bounds);
+            rfs_handles = [rfs_handles gmphd_handles];
         end
         if lcphd
             lcphd_handles = RFS.utils.rfs_tracker_plots(lcphd_figures, 'l-CPHD', k, lcphd_states(k).v, [n e psi], lcphd_Xhat, sensor, obs, true_obs, targets, bounds);
+            rfs_handles = [rfs_handles lcphd_handles];
         end
         if lpdcphd
             lpdcphd_handles = RFS.utils.rfs_tracker_plots(lpdcphd_figures, 'l-pd-CPHD', k, lpdcphd_states(k).v1, [n e psi], lpdcphd_Xhat, sensor, obs, true_obs, targets, bounds);
+            rfs_handles = [rfs_handles lpdcphd_handles];            
         end
-        
-        rfs_handles = [lcphd_handles gmphd_handles lpdcphd_handles];
     end % for k = 2:sim_steps
 end
 
