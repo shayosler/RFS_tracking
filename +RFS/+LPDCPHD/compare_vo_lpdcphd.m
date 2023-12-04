@@ -58,7 +58,7 @@ H = vo_model.H;
 
 % clutter: poisson 
 Ngamma0 = vo_model.clutter_Nt;
-lambda_true = vo_model.clutter_Nt * vomodel.clutter_P_D;
+lambda_true = vo_model.clutter_Nt * vo_model.clutter_P_D;
 
 %% Simulate
 sim_dt = vo_model.T;
@@ -71,17 +71,17 @@ lpdcphd_Xhat = cell(sim_steps, 1);
 lpdcphd_states(sim_steps, 1) = RFS.LPDCPHD.lpdcphd_state();
 
 PD_init = 0.5;
-Nc_init = round((size(meas.Z{1},2)-PD_init*sum(vo_model.w_birth))/PD_init);
+Nc_init = round((size(vo_meas.Z{1},2)-PD_init*sum(vo_model.w_birth))/PD_init);
 lpdcphd_states(1).v0 = RFS.utils.BMRFS(Nc_init, 1, 1);
 lpdcphd_states(1).v1 = RFS.utils.BGMRFS(eps, [0.1;0;0.1;0], diag([1 1 1 1]).^2, 1, 1);
-lpdcphd_states(1).rho = [zeros(Nc_init-1,1);1;zeros(filter.N_max-Nc_init+1,1)];
+lpdcphd_states(1).rho = [zeros(Nc_init-1,1);1;zeros(params.Nmax-Nc_init+1,1)];
 
 lpdcphd_states(1).N0 = 1;
 lpdcphd_states(1).N1 = 1;
 lpdcphd_states(1).lambda = 0;
 lpdcphd_states(1).pd0 = 0;
 lpdcphd_states(1).pd1 = 0;
-
+j = 1;
 for k = 2:sim_steps
     tk = t(j);
     j = j+1;

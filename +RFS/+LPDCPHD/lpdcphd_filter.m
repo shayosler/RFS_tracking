@@ -72,7 +72,7 @@ end
 % Predict beta part of distribution
 mu_beta = v1.s ./ (v1.s + v1.t);
 sigsq_beta = k_beta * (v1.s .* v1.t) ./ ( (v1.s + v1.t).^2 .* (v1.s + v1.t + 1));
-mm = ((mu_beta .* (1 - mu_beta)) / sigsq_beta) - 1;
+mm = ((mu_beta .* (1 - mu_beta)) ./ sigsq_beta) - 1;
 s_kk1 = mm .* mu_beta;
 t_kk1 = mm .* (1 - mu_beta);
 
@@ -207,8 +207,8 @@ end
 % Calculate updated weights for the prediction component
 wM_k_denom = sum_w0_kk1 + sum_w1_kk1;
 psi_ratio = (psi1_k' * rho_kk1) / (psi0_k' * rho_kk1);
-wM0_k = (beta(v0_kk1.s, v0_kk1.t + 1)./beta(v0_kk1.s, v0_kk1.t)) * psi_ratio / wM_k_denom;
-wM1_k = (beta(v1_kk1.s, v1_kk1.t + 1)./beta(v1_kk1.s, v1_kk1.t)) * psi_ratio / wM_k_denom;
+wM0_k = v0_kk1.w .* (beta(v0_kk1.s, v0_kk1.t + 1)./beta(v0_kk1.s, v0_kk1.t)) * psi_ratio / wM_k_denom;
+wM1_k = v1_kk1.w .* (beta(v1_kk1.s, v1_kk1.t + 1)./beta(v1_kk1.s, v1_kk1.t)) * psi_ratio / wM_k_denom;
 
 % Update intensity RFS. Update is weighted sum of prediction RFS, and an
 % RFS derived from each measurement
@@ -247,7 +247,7 @@ for jz = 1:Jz
     if any(wD0_k >= 1) || any(wD0_k < 0) || any(wD1_k >= 1) || any(wD1_k < 0)
         warning('Suspicious weight')
     end
-    v0_z = v0_z + RFS.utils.BMRFS(wD0_k, v0_kk1.s + 1, v0_kk1.t);
+    v0_z = v0_z + RFS.utils.BMRFS(wD0_k, v0_kk1.s + 1, v0_kk1.t);   % TODO: avoid extra allocations by pre-allocation vectors for all components then filling them during the loop, and then only creating one RFS at the end
     v1_z = v1_z + RFS.utils.BGMRFS(wD1_k, m_kz, P_kk, v1_kk1.s + 1, v1_kk1.t);
 end
 

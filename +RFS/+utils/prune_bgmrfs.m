@@ -46,8 +46,13 @@ while any(I)
     j = idxs(i_max);
     L = []; % Component indices to merge
     dist = zeros(sum(I), 1);
+    hdist = zeros(sum(I), 1);
     for i = find(I)'
-        dist(i) = RFS.utils.hellinger_bg(v.m(:, i), v.P(:, :, i), v.s(i), v.t(i), v.m(:, j), v.P(:, :, j), v.s(j), v.t(j));
+        % FIXME: for some reason this distance calculation 
+        % (ie using Hellinger distance) is not giving
+        % useful values. Everything has distance very close to 1
+        %hdist(i) = RFS.utils.hellinger_bg(v.m(:, i), v.P(:, :, i), v.s(i), v.t(i), v.m(:, j), v.P(:, :, j), v.s(j), v.t(j));
+        dist(i) = (v.m(:, i) - v.m(:, j))' * ( v.P(:, :, i) \ (v.m(:, i) - v.m(:, j)));
         if dist(i) < U
             L = [L i];
         end

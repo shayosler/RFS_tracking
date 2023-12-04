@@ -14,7 +14,7 @@ lcphd = false;
 lpdcphd = true;
 
 % Simulation params
-t_total = 50; %300;
+t_total = 300;
 sim_dt = 1;
 t = 0:sim_dt:t_total;
 sim_steps = numel(t);
@@ -190,8 +190,6 @@ lpdcphd_model.F = model_F;
 lpdcphd_model.Q = model_Q;
 
 % Detection and survival probabilities
-lpdcphd_model.pd0 = model_pd0;    % Probability of detecting a "clutter" object
-lpdcphd_model.pd1 = model_pd1;    % Probability of detecting a target
 lpdcphd_model.ps0 = model_ps0;    % Probability of clutter survival
 lpdcphd_model.ps1 = model_ps1;    % Probability of target survival
 
