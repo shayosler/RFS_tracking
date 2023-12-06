@@ -316,6 +316,7 @@ for k = 2:sim_steps
         [lpdcphd_states(k), lpdcphd_Xhat{k}] = RFS.LPDCPHD.lpdcphd_filter(lpdcphd_states(k-1), measurement, lpdcphd_model, lcphd_params);
     end
 
+    fprintf("t = %0.2f\n", t(k));
 
     %% Plots
     if mod(k, 10) == 0 && false
