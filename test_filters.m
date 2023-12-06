@@ -10,7 +10,7 @@ rng(seed);
 
 % Select which filters to run
 gmphd = false;
-lcphd = false;
+lcphd = true;
 lpdcphd = true;
 
 % Simulation params
@@ -31,7 +31,7 @@ Q = diag([.1 0 .1 0]) * 0;
 
 % Detection and survival probabilities
 true_pd0 = 0.2; % Probability of detecting a "clutter" generator
-true_pd1 = .99; % Probability of detecting a target
+true_pd1 = .75; % Probability of detecting a target
 true_ps0 = 0.9; % Probability of clutter generator survival
 true_ps1 = .9;  % Probability of target survival
 
@@ -154,6 +154,8 @@ lcphd_model.Q = model_Q;
 % Detection and survival probabilities
 lcphd_model.ps0 = model_ps0;    % Probability of clutter survival
 lcphd_model.ps1 = model_ps1;    % Probability of target survival
+lcphd_model.pd0 = model_pd0;    % Probability of detecting a "clutter" object
+lcphd_model.pd1 = model_pd1;    % Probability of detecting a target
 
 % Birth model
 lcphd_model.gamma1 = birth_rate .* bm.gamma;
