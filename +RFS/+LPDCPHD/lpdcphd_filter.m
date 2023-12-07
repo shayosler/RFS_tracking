@@ -256,7 +256,9 @@ v1_k_unpruned = RFS.utils.BGMRFS(wM1_k, v1_kk1.m, v1_kk1.P, v1_kk1.s, v1_kk1.t +
 
 %% Prune
 % TODO: different pruning parameters for clutter only beta mixture vs 
-% beta-gaussian mixture representing targets?
+% beta-gaussian mixture representing targets? There definitely needs to be 
+% because prune_bmrfs uses Hellinger distance which is bounded on [0, 1]
+% but prune_bgmrfs uses a likelihood-like distance which is unbounded
 v0_k = RFS.utils.prune_bmrfs(v0_k_unpruned, T, U, Jmax); 
 v1_k = RFS.utils.prune_bgmrfs(v1_k_unpruned, T, U, Jmax);
  

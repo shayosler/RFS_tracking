@@ -1,6 +1,5 @@
-classdef lpdcphd_model
-    %LPDCPHD_MODEL System model for a Cardinalized Probability Hypothesis 
-    % Density filter
+classdef lpdlmb_model
+    %LPDLMB_MODEL System model for a Labeled Multi-Bernoulli lambda-pD-LMB
 
     properties
         F           % State transition matrix x[k+1] = Fx[k], NxN
