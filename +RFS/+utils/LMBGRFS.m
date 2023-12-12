@@ -1,24 +1,23 @@
-classdef BGMRFS
-    % Beta-Gaussian Mixture Random Finite Set
-    % beta(x) = x^(s-1)(1-x)^(t-1)
+classdef LMBGRFS
+    % Labeled Multi-Bernoulli RFS with Gaussian spatial probability
     properties
-        J       % Number of components, scalar
-        w       % Weights, Jx1        
-        m       % Means of gaussian, NxJ
-        P       % Covariances of gaussian, NxNxJ
-        s       % Beta distribution s, Jx1
-        t       % Beta distribution t, Jx1
+        J       % Number of components, scalar        
+        w       % Weights of gaussians, Jx1    
+        m       % Means of gaussians, NxJ
+        P       % Covariances of gaussians, NxNxJ
+        r       % Existence probabilities, Jx1  
+        l       % Track labels, Jx1
     end
 
     methods
-        function d = BGMRFS(w, mu, sigma, s, t)
+        function d = LMBGRFS(w, mu, sigma, r, l)
             if (nargin == 0) || ...
-                    (isempty(mu) && isempty(sigma) && isempty(w) && isempty(s) && isempty(t))
+                    (isempty(mu) && isempty(sigma) && isempty(w) && isempty(r) && isempty(l))
                 d.J = 0;
                 d.m = [];
                 d.P = [];
-                d.s = [];
-                d.t = [];
+                d.r = [];
+                d.l = [];             
                 return;
             end
             d.J = size(mu, 2);
@@ -27,26 +26,26 @@ classdef BGMRFS
                 error('Invalid sigma');
             end
             if length(w) ~= numel(w) || length(w) ~= d.J
-                error('Invalid p')
+                error('Invalid w')
             end
-            if ~isvector(s) || length(s) ~= d.J
-                error('Invalid s')
+            if ~isvector(r) || length(r) ~= d.J
+                error('Invalid r')
             end
-            if ~isvector(t) || length(t) ~= d.J
-                error('Invalid t')
+            if ~isvector(l) || length(l) ~= d.J
+                error('Invalid l')
             end
             w = reshape(w, d.J, 1);
-            s = reshape(s, d.J, 1);
-            t = reshape(t, d.J, 1);
+            r = reshape(r, d.J, 1);
+            l = reshape(l, d.J, 1);
             d.m = mu;
             d.P = sigma;
             d.w = w;
-            d.s = s;
-            d.t = t;
+            d.r = r;
+            d.l = l;
         end
 
         function d = plus(first, second)
-            % Add two BGMRFS objects. The result is a BGMRFS object
+            % Add two LMBGRFS objects. The result is a LMBGRFS object
             % containing the components from both operands
             if first.J == 0
                 d = second;
@@ -56,9 +55,9 @@ classdef BGMRFS
                 new_mu = [first.m second.m];
                 new_sigma = cat(3, first.P, second.P);
                 new_w = [first.w; second.w];
-                new_s = [first.s; second.s];
-                new_t = [first.t; second.t];
-                d = RFS.utils.BGMRFS(new_w, new_mu, new_sigma, new_s, new_t);
+                new_r = [first.r; second.s];
+                new_l = [first.l; second.t];
+                d = RFS.utils.LMBGRFS(new_w, new_mu, new_sigma, new_r, new_l);
             end
         end
 

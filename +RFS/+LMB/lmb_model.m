@@ -1,5 +1,5 @@
-classdef lpdlmb_model
-    %LPDLMB_MODEL System model for a Labeled Multi-Bernoulli lambda-pD-LMB
+classdef lmb_model
+    %LMB_MODEL System model for a Labeled Multi-Bernoulli filter
 
     properties
         F           % State transition matrix x[k+1] = Fx[k], NxN

@@ -27,7 +27,7 @@ classdef BGMRFS
                 error('Invalid sigma');
             end
             if length(w) ~= numel(w) || length(w) ~= d.J
-                error('Invalid p')
+                error('Invalid w')
             end
             if ~isvector(s) || length(s) ~= d.J
                 error('Invalid s')
