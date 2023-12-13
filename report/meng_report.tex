@@ -65,6 +65,11 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{document}
 
+\section*{Letter of Transmittal}
+- The Gaussian mixture PHD filter and the pruning/merging code used in the lpdcphd and cphd were
+developed as part of the final project for MAE6760
+
+
 \begin{table}[h]
   \begin{center}
     \begin{tabular}{ c l } 
@@ -91,11 +96,11 @@ GMPHD filter\cite{gmphd}
 For this project I implemented ??? RFS based filtering algorithms. The first two filters I implemented were variants of the Cardinalized Probability Hypothesis Density (CPHD) filter. CPHD filters are similar to PHD filters, but whereas the PHD filter only propagates the posterior intensity distribution of the RFS representing the set of tracked targets, the CPHD filter jointly propagates both the posterior intensity distribution and the posterior cardinality distribution.
 
 \subsection*{CPHD With Unknown Clutter Rate}
-The CPHD filter with unknown clutter rate ($\lambda$-CPHD)\cite{cphd} attempts to simultaneously estimate the states of tracked targets and the rate of clutter detections. To do this it models clutter as the returns from a set of ``clutter generator'' objects which could be located at any arbitrary location, and then jointly estimates the positions of the target objects, the cardinality of the target RFS, and the cardinality of the clutter generator RFS. \\
+The CPHD filter with unknown clutter rate ($\lambda$-CPHD)\cite{cphd} attempts to simultaneously estimate the states of tracked targets and the rate of clutter detections (i.e. the expected number of lutter detections at a given time). To do this it models clutter as the returns from a set of ``clutter generator'' objects which could be located at any arbitrary location, and then jointly estimates the positions of the target objects, the cardinality of the target RFS, and the cardinality of the clutter generator RFS. \\
 \\
 Where necessary throughout this algorithm, symbols pertaining to the clutter RFS are denoted with a superscript $^{(0)}$, and symbols pertaining to the target RFS are denoted with a superscript $^{(1)}$. Subscripts $_{k-1}$, $_k$, and $_{k+1}$ are used to denote symbols pertaining to the previous, current, or next time step respectively. A subscript $_{k|k-1}$ denotes a prediction of a value at time $k$ given the value at time $k-1$.
 \\
-The intensity of the random finite set representing the targets, $v^{(1)}_k$, is modeled as a Gaussian mixture
+The intensity of the random finite set representing the targets at time $k$, $v^{(1)}_k$, is modeled as a Gaussian mixture
 \begin{equation}
   \label{eq:vk}
   v^{(1)}_k = \sum_{i = 1}^{J_k}w_k^i \mathcal{N}(m_k^i,\,P_k^i)
@@ -106,24 +111,163 @@ where $w$, $m$, and $P$ represent the component weights, means, and covariances 
 The dynamics for each target are assumed to be linear with a state transition matrix $F_k$, with additive 0 mean Gaussian noise, with covariance $Q_k$, ie given some state $x_k$
 \begin{equation}
   \label{eq:tgt_dynamics}
-  x_{k+1} = F_kx_k + \mathcal{N}(0,\,Q)
+  x_{k+1} = F_kx_k + \mathcal{N}(0,\,Q_k)
 \end{equation}
 
-For this implementation $F$ and $Q$ were assumed to be time invariant so the $_k$ subscripts are dropped for simplicity. The detection probabilities for clutter and targets are also assumed to be constant and are given by $p_{D}^{(0)}$ and $p_{D}^{(1)}$, and likewise the survival probabilities for clutter and targets are constant and denoted by $p_S^{(0)}$ and $p_S^{(1)}$. \\
+The detection probabilities for clutter and targets at some time $k$ are given by $p_{Dk}^{(0)}$ and $p_{Dk}^{(1)}$, and likewise the survival probabilities for clutter and targets at time $k$ denoted by $p_{Sk}^{(0)}$ and $p_{Sk}^{(1)}$. The relative likelihood of there being clutter at any location $x$ is represented by $\kappa(x)$. \\
 \\
-The clutter generator birth model is denoted $\Gamma^{(0)}$; however, since the clutter returns themselves are considered independent of the actual state of the clutter generators it is sufficient to only consider the mean number of clutter generator births, $N_{\Gamma}^{(0)}$. The target birth model is $\Gamma^{(1)}$, with intensity $\gamma^{(1)}$
+The clutter generator birth model is denoted $\Gamma^{(0)}$; however, since the clutter returns themselves are considered independent of the actual state of the clutter generators it is sufficient to only consider the mean number of clutter generator births, $N_{\Gamma k}^{(0)}$. The target birth model is $\Gamma^{(1)}_k$, with intensity $\gamma^{(1)}_k$
 \begin{equation}
   \label{eq:tgt_birth}
-\gamma^{(1)} = \sum_{i=1}^{J_{\gamma}^{(1)}}w_{\gamma}^i \mathcal{N}(m_{\gamma}^i,\,P_{\gamma}^i)
+\gamma^{(1)}_k = \sum_{i=1}^{J_{\gamma k}^{(1)}}w_{\gamma k}^i \mathcal{N}(m_{\gamma k}^i,\,P_{\gamma k}^i)
 \end{equation}
 
-The filtering then takes the following form: Given
+and the cardinality distribution of the total number of births, $\ddot{\rho}_{\Gamma k}$, is modelled as a Poisson distribution with parameter $\lambda_\Gamma$ given by
+\begin{equation}
+  \label{eq:rho_gamma}
+\lambda_{\Gamma k} = N_{\Gamma k}^{(0)} + \sum_{i=1}^{J_{\gamma k}^{(1)}}w_{\gamma k}^i 
+\end{equation}
 
+\subsubsection*{Prediction}
+If at time $k-1$ the posterior total cardinality distribution is $\ddot{\rho_{k-1}}$, the posterior mean number of clutter generators is $N^{(0)}_{k-1}$, and the posterior target intensity is given by
 
+\begin{equation}
+  \label{eq:vk}
+  v^{(1)}_{k-1} = \sum_{i = 1}^{J_{k-1}}w_{k-1}^i \mathcal{N}(m_{k-1}^i,\,P_{k-1}^i)
+\end{equation}
 
+then the predicted intensity, $v_{k|k-1}$, will be the sum of the target birth model intensity and the intensity calculated by propagating the mean and covariance of each component in the posterior target intensity through the system dynamics, with the weights scaled by the target survival probability, $p_S^{(1)}$
+\begin{align}
+  \label{eq:v_predict}
+  v_{k|k-1} &= p_{Sk}^{(1)}v_{k-1} + \gamma^{(1)}\\
+           &= p_{Sk}\sum_{j = 1}^{J_k-1}w_{k-1}^j \mathcal{N}(m_{k|k-1}^j,\,P_{k|k-1}^j) + \gamma^{(1)}_k\\
+  m_{k|k-1}^j &= F_km_{k-1}^j\\
+  P_{k|k-1}^j &= Q_k+F_kP_{k-1}^jF_k^T
+\end{align}
+The predicted mean number of clutter generators is similarly the predicted number of surviving clutter generators plus the mean number of clutter births
+\begin{equation}
+  \label{eq:N0_predict}
+  N_{k|k-1}^{(0)} = N_{\gamma k}^{(0)} + p_{Sk}^{(0)}N_{k-1}^{(0)}
+\end{equation}
 
+Finally the predicted total cardinality distribution is
+\begin{equation}
+  \label{eq:rho_predict}
+ \ddot{\rho}_{k|k-1}(\ddot{n}) = \sum_{j=0}^{\ddot{n}}\ddot{\rho}_{\Gamma k}(\ddot{n} - j) \sum_{l=j}^\infty {l \choose j}\ddot{\rho}_{k-1}(l)(1-\phi)^{l-j}\phi^j
+\end{equation}
+where $\phi$ represents the proportion of surviving clutter generators and targets
+\begin{equation}
+  \label{eq:phi}
+  \phi = \frac{p_{Sk}^{(1)}\sum_{i=1}^{J_{k-1}}w_{k-1}^{(i)} + P_{Sk}^{(0)}N_{k-1}^{(0)}}{\sum_{i=1}^{J_{k-1}}w_{k-1}^{(i)} + N_{k-1}^{(0)}}
+\end{equation}
+\subsubsection*{Update}
+Given a set of measurements $Z_k = \{z_1,\;z_2,\;...\;z_{Jzk}\}$ with linear measurement model
+\begin{align}
+  \label{eq:z}
+  z_j = Hx_k + n\\
+  n\sim \mathcal{N}(0,\,R)
+\end{align}
 
+the updated estimates for target intensity, mean number of clutter generators, and total cardinality are
 
+\begin{equation}
+  \label{eq:vk}
+  v^{(1)}_k = q_{Dk}\Theta_kv_{k|k-1} + \sum_{z \in Z_k}\sum_{j=1}^{J_{k|k-1}}w_{Dk}(z)\mathcal{N}(m_k^{(j)},P_k^{(j)})
+\end{equation}
+\begin{equation}
+  \label{eq:N0k}
+  N_k^{(0)} = N_{k|k-1}^{(0)}\left( q_{Dk}^{(0)}\Theta_k + \sum_{z \in Z_k}\frac{p_{Dk}^{(0)}\kappa(z)}{ p_{Dk}^{(0)}N_{k|k-1}^{(0)}\kappa_k(z) +  p_{Dk}^{(1)}\sum_{i=1}^{J_{k|k-1}}w_{k|k-1}^{(i)}q_k^{(i)}(z)} \right)
+\end{equation}
+\begin{equation}
+  \label{eq:rhok}
+  \ddot{\rho}_k(\ddot{n}) =
+  \begin{cases}
+    0 & \ddot{n} < |Z_k| \\
+    \frac{ \ddot{rho}_{k|k-1}(\ddot{n})\ddot{\Psi}_k^0(\ddot{n})}{\langle \ddot{\rho}_{k|k-1}, \ddot{\Psi}_k^0 \rangle  }
+  \end{cases}
+\end{equation}
+
+where
+\begin{equation}
+  \label{eq:mk}
+  m_k^{(j)}(z) = m_{k|k-1}^{(j)} + K_k^{(j)}(z - Hm_{k|k-1}^{(j)})
+\end{equation}
+
+\begin{equation}
+  \label{eq:kalman_gain}
+  K_k^{(j)} = P_{k|k-1}^jH^T(HP_{k|k-1}^jH^T + R)^{-1}\\
+\end{equation}
+
+\begin{equation}
+  \label{eq:Pk}
+  P_{k|k}^j = (I - K_k^jH)P_{k|k-1}^j(I - K_k^jH)^T + K_k^jRK_k^{j^T}
+\end{equation}
+
+\begin{equation}
+  \label{eq:thetak}
+  \Theta_k = \frac{\frac{\langle\ddot{\Psi}_k^1,\ddot{rho}_{k|k-1}\rangle}{\langle\ddot{\Psi}_k^0,\ddot{rho}_{k|k-1}\rangle}}{\sum_{i=1}^{J_{k-1}}w_{k-1}^{(i)} + N_{k-1}^{(0)}}
+\end{equation}
+\begin{equation}
+  \label{eq:psi}
+  \ddot{\Psi}_k^u(\ddot{n}) =
+  \begin{cases}
+    0 & \ddot{n} < |Z_k| + u \\
+   \frac{\ddot{n}!}{(\ddot{n}-|Z_K|-u)!}\Phi_{k|k-1}^{\ddot{n} - |Z_k|-u} & \ddot{n} \ge |Z_k|+u
+  \end{cases}
+\end{equation}
+\begin{equation}
+  \label{eq:Phi}
+  \Phi_{k|k-1} = 1 - \frac{p_{Dk}^{(1)}\sum_{i=1}^{J_{k-1}}w_{k-1}^{(i)} + P_{Dk}^{(0)}N_{k-1}^{(0)}}{\sum_{i=1}^{J_{k-1}}w_{k-1}^{(i)} + N_{k-1}^{(0)}}
+\end{equation}
+\begin{equation}
+  \label{eq:wD}
+  w_{Dk}^{(j)}(z) = \frac{p_{Dk}^{(1)}w_{k|k-1}^{(j)}q_k^{(j)}(z)}{p_{Dk}^{(0)}N_{k|k-1}^{(0)}\kappa_k(z) +  p_{Dk}^{(1)}\sum_{i=1}^{J_{k|k-1}}w_{k|k-1}^{(i)}q_k^{(i)}(z)  }
+\end{equation}
+\begin{equation}
+  \label{eq:qz}
+  q_k^{(j)} = \mathcal{N}(z;Hm_{k|k-1}^{(j)}, HP_{k|k-1}^{(j)}H^T + R)
+\end{equation}
+and $\langle a, b \rangle$ denotes the inner product of $a$ and $b$.
+
+\subsubsection*{Pruning and Merging}
+During the prediction step the number of components in the target intensity grows by the number of components in the target birth intensity. Then during the update the number of components increases again by a factor of $|Z_k|$. This can quickly cause the number of components representing the target intensity to grow to a prohibitive size, so after each update step the Gaussian mixture forming $v_{k}$ needs to be pruned yielding a new mixture $\tilde{v}_k$. The pruning process is relatively straightforward. First, calculate the total weight of all components in the mixture
+\begin{equation}
+  \label{eq:wtotal}
+  w_{Total} = \sum_j^Jw^j
+\end{equation}
+
+Next, establish some threshold $T$ and discard any components with weight less than $T$. Next merge components that are ``close enough''. For two components $i$ and $j$, define a distance metric
+\begin{align}
+  \label{eq:dist}
+  d = (m^i - m^j)^T(P^i)^{-1}(m^i - m^j)
+\end{align}
+Then define a threshold $U$, and starting with the highest weighted component find the set, $L$ of all remaining components in $v$ with distance less than $U$ from the component with the highest weight, including that highest weighted component. Merge the components into a single gaussian with mean and covariance
+\begin{align}
+  \label{eq:merged}
+  \tilde{w} &= \sum_{i \in L}w^i\\
+  \tilde{m} &= \frac{1}{\tilde{w}}\sum_{i \in L}w^im^i\\
+  \tilde{P} &= \frac{1}{\tilde{w}}\sum_{i \in L}w^i(P^i + (\tilde{m} - m^i)(\tilde{m} - m^i)^T)
+\end{align}
+Then find the next highest weighted remaining component, and repeat the merge between that component and any other components that are of lesser weight and close enough, until no more merges can be performed. If there are still more than some desired maximum mixture size, $J_{max}$, components then discard all except the $J_{max}$ highest weighted components. Finally, normalize the weights of the remaining components by a factor of
+\begin{equation}
+  \label{eq:wnorm}
+  \frac{w_{Total}}{\tilde{w}_{Total}}
+\end{equation}
+where
+\begin{equation}
+  \label{eq:wtild_total}
+  \tilde{w}_{Total} = \sum_j^{\tilde{J}}\tilde{w}^j
+\end{equation}
+
+to ensure that the total weight of the intensity is unchanged.
+
+\subsubsection*{State Extraction}
+The estimated cardinality of the target set $N_k^{(1)}$ can now be found by summing the weights of all of of the components of the target intensity
+\begin{equation}
+  \label{eq:N1k}
+  N_k^{(1)} = \sum_j^{\tilde{J}_k}\tilde{w}_k^j
+\end{equation}
+and the estimated target states $\hat{X}_k$ can be extracted by selecting the means of the highest weighted components of $\tilde{v}_k$, replicating each component $round(\tilde{w}_K^j)$ times, until there are $N_k^{(1)}$ targets in $\hat{X}_k$. The estimated number of clutter generators is given by $N_k^{(0)}$, and the estimated clutter rate is $\hat{\lambda}_k = p_{Dk}^{(0)}N_k^{(0)}$.
 
 \subsection*{$\lambda$-$p_D$-CPHD}
 The $\lambda$-$p_D$-CPHD filter\cite{cphd} is
