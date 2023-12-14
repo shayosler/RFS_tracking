@@ -9,15 +9,19 @@ seed = 1;
 rng(seed);
 
 % Select which filters to run
-gmphd = false;
+gmphd = true;
 lcphd = true;
 lpdcphd = true;
 
 % Simulation params
-t_total = 300;
+t_total = 20; %300;
 sim_dt = 1;
 t = 0:sim_dt:t_total;
 sim_steps = numel(t);
+
+% OSPA paramaters
+ospa_c = 5;
+ospa_p = 1;
 
 %% True system
 
@@ -126,6 +130,7 @@ Ngamma0 = 5;
 gmphd_v(sim_steps) = RFS.utils.GMRFS();
 gmphd_N = zeros(sim_steps, 1);
 gmphd_Xhat = cell(sim_steps, 1);
+gmphd_ospa = zeros(sim_steps, 1);
 
 % Figures for GMPHD plots
 if gmphd
@@ -133,6 +138,7 @@ if gmphd
     gmphd_figures.v_fig = figure;
     gmphd_figures.n_fig = figure;
     gmphd_figures.map_fig = figure;
+    gmphd_figures.ospa_fig = figure;
 end
 
 %% l-CPHD Filter
@@ -166,8 +172,9 @@ lcphd_model.kappa = 1 / A_fov;  % Clutter is equally likely anywhere
 
 % Initial conditions and storage for l-CPHD
 lcphd_Xhat = cell(sim_steps, 1);
-lambda_hat = zeros(sim_steps, 1);
-lambda_hat(1) = 1;
+lcphd_lambda_hat = zeros(sim_steps, 1);
+lcphd_lambda_hat(1) = 1;
+lcphd_ospa = zeros(sim_steps, 1);
 lcphd_states(sim_steps, 1) = RFS.CPHD.cphd_state();
 lcphd_states(1).v = RFS.utils.GMRFS();
 lcphd_states(1).N0 = 0;
@@ -180,6 +187,7 @@ if lcphd
     lcphd_figures.v_fig = figure;
     lcphd_figures.n_fig = figure;
     lcphd_figures.map_fig = figure;
+    lcphd_figures.ospa_fig = figure;
     lcpdh_figures.rho_fig = figure;
     lcpdh_figures.lambda_fig = figure;
 end
@@ -213,6 +221,7 @@ lpdcphd_model.kB = 1.5;
 
 % Initial conditions and storage for l-pd-CPHD
 lpdcphd_Xhat = cell(sim_steps, 1);
+lpdcphd_ospa = zeros(sim_steps, 1);
 lpdcphd_states(sim_steps, 1) = RFS.LPDCPHD.lpdcphd_state();
 lpdcphd_states(1).v0 = RFS.utils.BMRFS();
 lpdcphd_states(1).v1 = RFS.utils.BGMRFS();
@@ -229,20 +238,24 @@ if lpdcphd
     lpdcphd_figures.v_fig = figure;
     lpdcphd_figures.n_fig = figure;
     lpdcphd_figures.map_fig = figure;
-    lpdcpdh_figures.rho_fig = figure;
-    lpdcpdh_figures.lambda_fig = figure;
-    lpdcpdh_figures.pd_fig = figure;
+    lpdcphd_figures.ospa_fig = figure;
+    lpdcphd_figures.rho_fig = figure;
+    lpdcphd_figures.lambda_fig = figure;
+    lpdcphd_figures.pd_fig = figure;
 end
-
 
 %% Simulate
 
 % Initial conditions and storage variables
 x = zeros(sim_steps, 12);
 obs = cell(sim_steps, 1);
-true_obs = cell(sim_steps, 1);
-lambda_true = zeros(sim_steps, 1);
-lambda_true(1) = sensor.lambda;
+truth.vis_tgts = cell(sim_steps, 1);    % True locations of visible targets
+truth.lambda = zeros(sim_steps, 1);     % True clutter rate
+truth.pd0 = zeros(sim_steps, 1);        % True clutter detection probability
+truth.pd1 = zeros(sim_steps, 1);        % True target detection probability
+truth.lambda(1) = sensor.lambda;
+truth.pd0(1) = true_pd0;
+truth.pd1(1) = true_pd1;
 
 rfs_handles = [];
 for k = 2:sim_steps
@@ -256,7 +269,7 @@ for k = 2:sim_steps
     existing = [targets.t_birth] <= k & [targets.t_death] > k;
     targets(existing) = targets(existing).step();
 
-    % Get measurements of targets
+    % Update system parameters
     if k < 100
         sensor.lambda = 7;
     elseif k < 200
@@ -264,7 +277,11 @@ for k = 2:sim_steps
     else
         sensor.lambda = 2;
     end
-    lambda_true(k) = sensor.lambda;
+    truth.lambda(k) = sensor.lambda;
+    truth.pd0(k) = true_pd0;
+    truth.pd1(k) = true_pd1;
+
+    % Get measurements of targets
     [r, b, r_true, b_true] = sensor.measure([n, e, psi], targets(existing));   
 
     % Convert to absolute coordinates
@@ -279,9 +296,9 @@ for k = 2:sim_steps
     obs{k} = zeros(length(r), 2);
     obs{k}(:, 1) = n_obs;
     obs{k}(:, 2) = e_obs;
-    true_obs{k} = zeros(length(r_true), 2);
-    true_obs{k}(:, 1) = n_obs_true;
-    true_obs{k}(:, 2) = e_obs_true;
+    truth.vis_tgts{k} = zeros(2, length(r_true));
+    truth.vis_tgts{k}(1, :) = n_obs_true;
+    truth.vis_tgts{k}(2, :) = e_obs_true;
 
     % Generate measurement
     measurement = RFS.CPHD.cphd_measurement();
@@ -306,14 +323,17 @@ for k = 2:sim_steps
             lcphd_params.T, ...
             lcphd_params.Jmax, ...
             lcphd_params.w_min);
+        gmphd_ospa(k) = ospa_dist(gmphd_Xhat{k}, truth.vis_tgts{k}, ospa_c, ospa_p);
     end
 
     if lcphd
-        [lcphd_states(k), lcphd_Xhat{k}, lambda_hat(k)] = RFS.CPHD.lcphd_filter(lcphd_states(k-1), measurement, lcphd_model, lcphd_params);
+        [lcphd_states(k), lcphd_Xhat{k}, lcphd_lambda_hat(k)] = RFS.CPHD.lcphd_filter(lcphd_states(k-1), measurement, lcphd_model, lcphd_params);
+        lcphd_ospa(k) = ospa_dist(lcphd_Xhat{k}, truth.vis_tgts{k}, ospa_c, ospa_p);
     end
 
     if lpdcphd
         [lpdcphd_states(k), lpdcphd_Xhat{k}] = RFS.LPDCPHD.lpdcphd_filter(lpdcphd_states(k-1), measurement, lpdcphd_model, lcphd_params);
+        lpdcphd_ospa(k) = ospa_dist(lpdcphd_Xhat{k}, truth.vis_tgts{k}, ospa_c, ospa_p);
     end
 
     fprintf("t = %0.2f\n", t(k));
@@ -322,36 +342,129 @@ for k = 2:sim_steps
     if mod(k, 10) == 0 && false
         delete(rfs_handles);
         if gmphd
-            gmphd_handles = RFS.utils.rfs_tracker_plots(gmphd_figures, 'GMPHD', k, gmphd_v(k), [n e psi], gmphd_Xhat, sensor, obs, true_obs, targets, bounds);
+            gmphd_handles = RFS.utils.rfs_tracker_plots(gmphd_figures, ...
+                'GMPHD', ...
+                k, ...
+                [n e psi], ...
+                sensor, ...
+                obs, ...
+                truth.vis_tgts, ...
+                targets, ...
+                bounds, ...
+                gmphd_v(k), ...
+                gmphd_Xhat, ...
+                gmphd_ospa);
             rfs_handles = [rfs_handles gmphd_handles];
         end
         if lcphd
-            lcphd_handles = RFS.utils.rfs_tracker_plots(lcphd_figures, 'l-CPHD', k, lcphd_states(k).v, [n e psi], lcphd_Xhat, sensor, obs, true_obs, targets, bounds);
+            lcphd_handles = RFS.utils.rfs_tracker_plots(lcphd_figures, ...
+                'l-CPHD', ...
+                k, ...
+                [n e psi], ...
+                sensor, ...
+                obs, ...
+                truth.vis_tgts, ...
+                targets, ...
+                bounds, ...
+                lcphd_states(k).v, ...
+                lcphd_Xhat, ...
+                lcphd_ospa);
             rfs_handles = [rfs_handles lcphd_handles];
         end
         if lpdcphd
-            lpdcphd_handles = RFS.utils.rfs_tracker_plots(lpdcphd_figures, 'l-pd-CPHD', k, lpdcphd_states(k).v1, [n e psi], lpdcphd_Xhat, sensor, obs, true_obs, targets, bounds);
+            lpdcphd_handles = RFS.utils.rfs_tracker_plots(lpdcphd_figures, ...
+                'l-pd-CPHD', ...
+                k, ...
+                [n e psi], ...                
+                sensor, ...
+                obs, ...
+                truth.vis_tgts, ...
+                targets, ...
+                bounds, ...
+                lpdcphd_states(k).v1, ...
+                lpdcphd_Xhat, ...
+                lpdcphd_ospa);
             rfs_handles = [rfs_handles lpdcphd_handles];            
         end
     end % for k = 2:sim_steps
 end
 
+%% Save data
+data_dir = "./data/";
+now = datetime;
+timestampstr = string(yyyymmdd(now)) + "T" ...
+    + string(hour(now)) ...
+    + string(minute(now)) ...
+    + string(second(now));
+filename = data_dir + timestampstr;
+if gmphd
+    filename = filename + "_gmphd";
+end
+if lcphd
+    filename = filename + "_lcphd";
+end
+if lpdcphd
+    filename = filename + "_lpdcphd";
+end
+filename = filename + ".mat";
+save(filename);
+fprintf('Saved data to %s\n', filename);
+
+%% Load data
+clc
+clear
+close all
+data_dir = "./data/";
+to_load = "20231214T165023.7319_gmphd_lcphd_lpdcphd.mat";
+load(data_dir + to_load);
+
 %% Final plots
 % General RFS plots
 delete(rfs_handles);
 if gmphd
-    gmphd_handles = RFS.utils.rfs_tracker_plots(gmphd_figures, 'GMPHD', k, gmphd_v(k), [n e psi], gmphd_Xhat, sensor, obs, true_obs, targets, bounds);
+    gmphd_handles = RFS.utils.rfs_tracker_plots(gmphd_figures, ...
+        'GMPHD', ...
+        k, ...
+        [n e psi], ...
+        sensor, ...
+        obs, ...
+        truth.vis_tgts, ...
+        targets, ...
+        bounds, ...
+        gmphd_v(k), ...
+        gmphd_Xhat, ...
+        gmphd_ospa);
 end
 
 if lcphd
-    lcphd_tracker_h = RFS.utils.rfs_tracker_plots(lcphd_figures, 'l-CPHD', k, lcphd_states(k).v, [n e psi], lcphd_Xhat, sensor, obs, true_obs, targets, bounds);
-    % l-CPHD specific plots
-    lcphd_h = RFS.CPHD.lcphd_plots(lcpdh_figures, k, targets, lcphd_Xhat, lambda_hat, lambda_true);
-    lcphd_handles = [lcphd_tracker_h, lcphd_h];
+    lcphd_handles = RFS.utils.rfs_tracker_plots(lcphd_figures, ...
+        'l-CPHD', ...
+        k, ...
+        [n e psi], ...
+        sensor, ...
+        obs, ...
+        truth.vis_tgts, ...
+        targets, ...
+        bounds, ...
+        lcphd_states(k).v, ...
+        lcphd_Xhat, ...
+        lcphd_ospa);    % l-CPHD specific plots
+    lcphd_h = RFS.CPHD.lcphd_plots(lcpdh_figures, k, targets, lcphd_Xhat, lcphd_lambda_hat, truth.lambda);
 end
 
 if lpdcphd
     %lcphd_h = RFS.CPHD.lcphd_plots(lcpdh_figures, k, targets, lcphd_Xhat, lambda_hat, lambda_true);
 
-    lpdcphd_tracker_h = RFS.utils.rfs_tracker_plots(lpdcphd_figures, 'l-pd-CPHD', k, lpdcphd_states(k).v1, [n e psi], lpdcphd_Xhat, sensor, obs, true_obs, targets, bounds);
+    lpdcphd_handles = RFS.utils.rfs_tracker_plots(lpdcphd_figures, ...
+        'l-pd-CPHD', ...
+        k, ...
+        [n e psi], ...
+        sensor, ...
+        obs, ...
+        truth.vis_tgts, ...
+        targets, ...
+        bounds, ...
+        lpdcphd_states(k).v1, ...
+        lpdcphd_Xhat, ...
+        lpdcphd_ospa);
 end

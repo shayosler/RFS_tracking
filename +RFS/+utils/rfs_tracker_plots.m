@@ -1,4 +1,4 @@
-function handles = rfs_tracker_plots(figures, prefix, k, v, x, Xhat, sensor, z, z_true, targets, bounds)
+function handles = rfs_tracker_plots(figures, prefix, k, x, sensor, z, z_true, targets, bounds, v, Xhat, ospa)
 %rfs_tracker_plots Generate plots common to all trackers
 % Inputs:
 %   prefix
@@ -34,7 +34,7 @@ n_trackers = zeros(k, 1);
 n_true = zeros(k, 1);
 for n = 1:k
     n_trackers(n) = size(Xhat{n}, 2);
-    n_true(n) = size(z_true{n}, 1);
+    n_true(n) = size(z_true{n}, 2);
     z_n = z{n};
     if ~isempty(z_n)
         h_obs = [h_obs plot(z_n(:, 2), z_n(:, 1), '.')];
@@ -100,13 +100,24 @@ ylabel 'Number'
 legend('Tracked Objects', 'True Targets')
 set(gca, 'Fontsize', 18)
 
+% Plot OSPA
+figure(figures.ospa_fig);
+h_ospa = plot(ospa(2:end), 'LineWidth', 2);
+title([prefix ' OSPA Metric'])
+xlabel 'Time step'
+ylabel 'OSPA Metric'
+set(gca, 'Fontsize', 18)
+handles = [handles h_ospa];
+
 %% print out some statistices
 n_err = n_true - n_trackers;
 rms_n_err = rms(n_err);
 mean_n_err = mean(n_err);
 std_n_err = std(n_err);
+mean_ospa = mean(ospa(2:end));
 fprintf('%s RMS Cardinality Error: %0.3f\n', prefix, rms_n_err);
 fprintf('%s Mean Cardinality Error: %0.3f\n', prefix, mean_n_err);
 fprintf('%s Std Cardinality Error: %0.3f\n', prefix, std_n_err);
+fprintf('%s Mean OSPA: %0.3f\n', prefix, mean_ospa);
 
 end
