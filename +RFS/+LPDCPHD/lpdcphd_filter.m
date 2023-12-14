@@ -92,15 +92,6 @@ else
     phi = (ps1 * sum(v1.w) + ps0 * sum(v0.w)) / (sum(v1.w) + sum(v0.w));
 end
 
-% Variables as named by vo:
-%w_update = v.w;
-%Nc_update = N0;
-%vo_model.P_S = ps1;
-%vo_model.clutter_P_S = ps0;
-%vo_model.w_birth = model.gamma1.w;
-%vo_model.lambda_cb = model.Ngamma0;
-%cdn_update = rho;
-
 % surviving cardinality distribution
 N_max = length(rho) - 1;
 survive_cdn_predict = zeros(N_max+1, 1);
