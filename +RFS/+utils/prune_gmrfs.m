@@ -54,10 +54,6 @@ while any(I)
     Pl = zeros(size(v.P(:, :, 1)));
     for i = L
         Pl = Pl + v.w(i)*(v.P(:, :, i) + (ml - v.m(:, i))*(ml - v.m(:, i))');
-        [~, err] = cholcov(Pl, 0);
-        if err ~= 0
-            error('Invalid sigma');
-        end
     end
     Pl = Pl ./ wl;
     Pl = RFS.utils.make_symmetric(Pl);

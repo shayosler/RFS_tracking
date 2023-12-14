@@ -260,7 +260,7 @@ pd0 = v0_k.s ./ (v0_k.s + v0_k.t);
 pd1 = v1_k.s ./ (v1_k.s + v1_k.t);
 
 % Estimated clutter rate
-lambda = v0_k.w * d0_kk1';
+lambda = v0_k.w' * pd0;
 
 % Updated state
 state_k = RFS.LPDCPHD.lpdcphd_state();

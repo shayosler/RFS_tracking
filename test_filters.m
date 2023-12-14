@@ -4,17 +4,18 @@ clear
 close all
 
 %% Set up
-%seed = 52490;
-seeds = [1];
+%seeds = 52490;
+%seeds = [1 2 3 4 5 6 7 8 9 10];
+seeds = 1;
 rng(seeds(1));
 
 % Select which filters to run
-gmphd = true;
-lcphd = true;
+gmphd = false;
+lcphd = false;
 lpdcphd = true;
 
 % Simulation params
-t_total = 300;
+t_total = 20;
 sim_dt = 1;
 t = 0:sim_dt:t_total;
 sim_steps = numel(t);
@@ -459,12 +460,10 @@ if lcphd
         lcphd_states(k).v, ...
         lcphd_Xhat, ...
         lcphd_ospa);    % l-CPHD specific plots
-    lcphd_h = RFS.CPHD.lcphd_plots(lcpdh_figures, k, targets, lcphd_Xhat, lcphd_lambda_hat, truth.lambda);
+    lcphd_h = RFS.CPHD.lcphd_plots(lcpdh_figures, 'l-CPHD', k, targets, truth, lcphd_Xhat, lcphd_lambda_hat);
 end
 
 if lpdcphd
-    %lcphd_h = RFS.CPHD.lcphd_plots(lcpdh_figures, k, targets, lcphd_Xhat, lambda_hat, lambda_true);
-
     lpdcphd_handles = RFS.utils.rfs_tracker_plots(lpdcphd_figures, ...
         'l-pd-CPHD', ...
         k, ...
@@ -477,4 +476,6 @@ if lpdcphd
         lpdcphd_states(k).v1, ...
         lpdcphd_Xhat, ...
         lpdcphd_ospa);
+
+    lpdcphd_h = RFS.CPHD.lcphd_plots(lpdcphd_figures, 'l-pd-CPHD', k, targets, truth, lpdcphd_Xhat, [lpdcphd_states.lambda]);
 end
