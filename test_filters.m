@@ -10,13 +10,18 @@ seeds = 1;
 rng(seeds(1));
 
 % Select which filters to run
-gmphd = false;
-lcphd = false;
-lpdcphd = false;
+gmphd = true;
+lcphd = true;
+lpdcphd = true;
 lmb = true;
+almb = true;
+
+if almb && ~lpdcphd
+    error('The adaptive LMB filter requires also runnning the l-pd-CPHD filter')
+end
 
 % Simulation params
-t_total = 300;
+t_total = 100;
 sim_dt = 1;
 t = 0:sim_dt:t_total;
 sim_steps = numel(t);
@@ -40,7 +45,7 @@ Q = diag([.1 0 .1 0]) * 0;
 true_pd0 = 0.2; % Probability of detecting a "clutter" generator
 true_pd1 = .95; % Probability of detecting a target
 true_ps0 = 0.9; % Probability of clutter generator survival
-true_ps1 = 0.9;  % Probability of target survival
+true_ps1 = 0.9; % Probability of target survival
 
 % Sensor
 sensor = RFS.sim.Sonar_RB;
@@ -62,7 +67,7 @@ A_fov = (pi * sensor.range^2) * (sensor.fov / 360);
 %% Define environment/targets
 % Bounds for northing and easting
 min_n = 0;
-max_n = 100;
+max_n = 45;
 min_e = -30;
 max_e = 30;
 bounds = [min_e max_e min_n max_n];
@@ -72,6 +77,7 @@ eastings = min_e-10:.1:max_e;
 % Initialize targets. 
 n_tgt = 10;  
 targets(n_tgt) = RFS.sim.Target_2D;
+% Line of targets moving from left to right
 spacing = 4;
 for k = 1:n_tgt
     targets(k).F = F;
@@ -83,6 +89,18 @@ for k = 1:n_tgt
     x0 = [tgt_n tgt_ndot tgt_e tgt_edot];
     targets(k).X = x0;
 end
+
+% Line of targets stationary in center of field of view
+%for k = 1:n_tgt
+%    targets(k).F = F;
+%    targets(k).Q = Q;
+%    tgt_e = 0;
+%    tgt_n = 10 + 2.5 * k;
+%    tgt_ndot = 0;
+%    tgt_edot = 0;
+%    x0 = [tgt_n tgt_ndot tgt_e tgt_edot];
+%    targets(k).X = x0;
+%end
 
 % Plot map
 map_fig = figure;
@@ -108,15 +126,21 @@ model_Q = 5 * eye(n_states);
 
 % Detection/survival probabilities
 model_pd0 = true_pd0;
-model_pd1 = .75*true_pd1;
+model_pd1 = true_pd1;
 model_ps0 = true_ps0;
 model_ps1 = true_ps1;
 
 % Target birth model
 %bm = load('./models/birth_model_100.mat');
-bm = load('./models/birth_model_200_uniform_rb.mat');
+uniform_bm = load('./models/birth_model_200_uniform_rb.mat');
+uniform_bm = uniform_bm.gamma;
+centerline_bm = RFS.utils.GMRFS([23; 0], [35 0; 0 2], 1); % One component along center
+left_edge_bm = RFS.utils.transform_gmrfs(centerline_bm, 0, 0, -pi/4);
+
 birth_rate = 0.01; % Expected rate of new births
-birth_gmrfs = birth_rate .* bm.gamma;
+birth_gmrfs = birth_rate .* centerline_bm; % uniform_bm;
+birth_fig = figure;
+h_birth = RFS.utils.plotgmphd(birth_gmrfs, [min_n:.1:max_n], [min_e:.1:max_e]);
 
 % Sensor/measurement model
 sigma_rb = [.25 0;   % range
@@ -172,7 +196,7 @@ lcphd_model.pd0 = model_pd0;    % Probability of detecting a "clutter" object
 lcphd_model.pd1 = model_pd1;    % Probability of detecting a target
 
 % Birth model
-lcphd_model.gamma1 = birth_rate .* bm.gamma;
+lcphd_model.gamma1 = birth_gmrfs;
 
 % clutter
 lcphd_model.Ngamma0 = Ngamma0;  % Mean clutter birth rate, 
@@ -285,8 +309,6 @@ lmb_params.P_G= 0.9999999;                           %gate size in percentage
 lmb_params.gamma= chi2inv(lmb_params.P_G, n_states);   %inv chi^2 dn gamma value
 lmb_params.gate_flag= 1;                             %gating on or off 1/0
 
-lmb_params.run_flag= 'disp';            %'disp' or 'silence' for on the fly output
-
 % model parameters
 lmb_model.x_dim= n_states;   %dimension of state vector
 lmb_model.z_dim= 2;   %dimension of observation vector
@@ -305,15 +327,19 @@ lmb_model.P_S= model_ps1;
 lmb_model.Q_S= 1-lmb_model.P_S;
 
 % birth parameters (LMB birth model, single component only)
-lmb_model.T_birth= birth_gmrfs.J;         %no. of LMB birth terms
+lmb_birth_rate = .5;
+lmb_birth_gmrfs = lmb_birth_rate .* centerline_bm;
+lmg_birth_fig = figure;
+h_lmb_birth = RFS.utils.plotgmphd(lmb_birth_gmrfs, min_n:.1:max_n, min_e:.1:max_e);
+lmb_model.T_birth= lmb_birth_gmrfs.J;         %no. of LMB birth terms
 lmb_model.L_birth= ones(lmb_model.T_birth,1);                                       %no of Gaussians in each LMB birth term
-lmb_model.r_birth= birth_gmrfs.w;                                                   %prob of birth for each LMB birth term
-lmb_model.w_birth= num2cell(ones(birth_gmrfs.J, 1));                                %weights of GM for each LMB birth term
-lmb_model.m_birth= mat2cell(birth_gmrfs.m, n_states, ones(1, birth_gmrfs.J))';       %means of GM for each LMB birth term
+lmb_model.r_birth= lmb_birth_gmrfs.w;                                                   %prob of birth for each LMB birth term
+lmb_model.w_birth= num2cell(ones(lmb_birth_gmrfs.J, 1));                                %weights of GM for each LMB birth term
+lmb_model.m_birth= mat2cell(lmb_birth_gmrfs.m, n_states, ones(1, lmb_birth_gmrfs.J))';       %means of GM for each LMB birth term
 %lmb_model.B_birth= cell(lmb_model.T_birth,1);                                      %std of GM for each LMB birth term
 lmb_model.P_birth= cell(lmb_model.T_birth,1);                                       %cov of GM for each LMB birth term
-for j = 1:birth_gmrfs.J
-    lmb_model.P_birth{j} = birth_gmrfs.P(:, :, j);
+for j = 1:lmb_birth_gmrfs.J
+    lmb_model.P_birth{j} = lmb_birth_gmrfs.P(:, :, j);
 end
 
 % observation model parameters (noisy x/y only)
@@ -337,8 +363,36 @@ tt_lmb_update= cell(0,1);
 lmb_est.X = cell(sim_steps, 1);
 lmb_est.N = zeros(sim_steps, 1);
 lmb_est.L = cell(sim_steps, 1);
+lmb_ospa = zeros(sim_steps, 1);
+
+% Figures for lmb
+if lmb
+    lmb_figures = struct();
+    lmb_figures.v_fig = figure;
+    lmb_figures.n_fig = figure;
+    lmb_figures.map_fig = figure;
+    lmb_figures.ospa_fig = figure;
+end
 
 %% Adaptive Vo LMB
+
+%initial prior
+tt_almb_update= cell(0,1);
+
+% Data storage
+almb_est.X = cell(sim_steps, 1);
+almb_est.N = zeros(sim_steps, 1);
+almb_est.L = cell(sim_steps, 1);
+almb_ospa = zeros(sim_steps, 1);
+
+% Figures for lmb
+if almb
+    almb_figures = struct();
+    almb_figures.v_fig = figure;
+    almb_figures.n_fig = figure;
+    almb_figures.map_fig = figure;
+    almb_figures.ospa_fig = figure;
+end
 
 %% Simulate
 
@@ -440,8 +494,17 @@ for s = 1:length(seeds)
         end
 
         if lmb
-            [tt_lmb_update, lmb_est.X{k}, lmb_est.N(k), lmb_est.L{k}] = vo.lmb.lmb_filter(tt_lmb_update, lmb_model, lmb_params, measurement, k);
+            [tt_lmb_update, lmb_est.X{k}, lmb_est.N(k), lmb_est.L{k}] = vo.lmb.jointlmb_filter(tt_lmb_update, lmb_model, lmb_params, measurement, k);
+            lmb_ospa(k) = ospa_dist(lmb_est.X{k}, truth.vis_tgts{k}, ospa_c, ospa_p);
         end
+
+        if almb
+            almb_model = lmb_model;
+            almb_model.lambda_c = lpdcphd_states(k).lambda;
+            almb_model.P_D = lpdcphd_states(k).v1.w' * lpdcphd_states(k).pd1 / sum(lpdcphd_states(k).v1.w);
+            [tt_almb_update, almb_est.X{k}, almb_est.N(k), almb_est.L{k}] = vo.lmb.jointlmb_filter(tt_almb_update, almb_model, lmb_params, measurement, k);
+            almb_ospa(k) = ospa_dist(almb_est.X{k}, truth.vis_tgts{k}, ospa_c, ospa_p);
+        end        
 
         fprintf("t = %0.2f\n", t(k));
 
@@ -515,6 +578,9 @@ end
 if lpdcphd
     filename = filename + "_lpdcphd";
 end
+if lmb
+    filename = filename + "_lmb";
+end
 filename = filename + ".mat";
 save(filename);
 fprintf('Saved data to %s\n', filename);
@@ -583,4 +649,34 @@ if lpdcphd
 
     lpdcphd_h1 = RFS.CPHD.lcphd_plots(lpdcphd_figures, 'l-pd-CPHD', k, targets, truth, lpdcphd_Xhat, [lpdcphd_states.lambda]);
     lpdcphd_h2 = RFS.LPDCPHD.lpdcphd_plots(lpdcphd_figures, 'l-pd-CPHD', k, targets, truth, lpdcphd_Xhat, lpdcphd_states);
+end
+
+if lmb
+    lmb_handles = RFS.utils.rfs_tracker_plots(lmb_figures, ...
+        'LMB', ...
+        k, ...
+        [n e psi], ...
+        sensor, ...
+        obs, ...
+        truth.vis_tgts, ...
+        targets, ...
+        bounds, ...
+        RFS.utils.GMRFS(), ... % No easy intensity plot
+        lmb_est.X, ...
+        lmb_ospa);
+end
+
+if almb
+    almb_handles = RFS.utils.rfs_tracker_plots(almb_figures, ...
+        'Adaptive-LMB', ...
+        k, ...
+        [n e psi], ...
+        sensor, ...
+        obs, ...
+        truth.vis_tgts, ...
+        targets, ...
+        bounds, ...
+        RFS.utils.GMRFS(), ... % No easy intensity plot
+        almb_est.X, ...
+        almb_ospa);
 end

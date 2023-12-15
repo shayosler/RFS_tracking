@@ -241,7 +241,7 @@ v1_k_unpruned = RFS.utils.BGMRFS(wM1_k, v1_kk1.m, v1_kk1.P, v1_kk1.s, v1_kk1.t +
 
 %% Prune
 v0_k = RFS.utils.prune_bmrfs(v0_k_unpruned, params.T0, params.U0, params.Jmax0); 
-fprintf('Before merge |v0| = %d. After merge |v0| = %d\n', v0_k_unpruned.J, v0_k.J);
+%fprintf('Before merge |v0| = %d. After merge |v0| = %d\n', v0_k_unpruned.J, v0_k.J);
 v1_k = RFS.utils.prune_bgmrfs(v1_k_unpruned, params.T1, params.U1, params.Jmax1);
  
 %% Outputs

@@ -23,5 +23,5 @@ p = reshape(p, size(X));
 %h = pcolor(X,Y,p);
 h = pcolor(Y, X, p);
 shading interp;
-
+axis equal
 end

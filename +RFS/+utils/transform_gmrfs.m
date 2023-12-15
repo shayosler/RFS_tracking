@@ -13,6 +13,6 @@ end
 
 % Translate
 mu = mu + repmat([n; e], 1, dist.J);
-v_out = GMRFS(mu, P, dist.w);
+v_out = RFS.utils.GMRFS(mu, P, dist.w);
 
 end
