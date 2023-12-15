@@ -61,7 +61,8 @@ P_kk1 = zeros(size(v.P));
 Jk = v.J;
 for j = 1:Jk
     m_kk1(:, j) = F*m_k(:, j);
-    P_kk1(:, :, j) = Q + F*P_k(:, :, j)*F';
+    P_pred = Q + F*P_k(:, :, j)*F';
+    P_kk1(:, :, j) = RFS.utils.make_symmetric(P_pred);
 end
 
 % Full prediction is sum of births and propagation
@@ -153,7 +154,8 @@ for j = 1:Jkk1
 
     % Updated estimate covariances
     I = eye(size(P_kk1j));
-    P_kk(:, :, j) = (I - Kj * H) * P_kk1j * (I - Kj * H)' + Kj * R * Kj';
+    P_kkj = (I - Kj * H) * P_kk1j * (I - Kj * H)' + Kj * R * Kj';
+    P_kk(:, :, j) = RFS.utils.make_symmetric(P_kkj);
 end
 
 % Phi_kk1 is 1 - ratio of expected number of detected objects (targets + clutter)
@@ -238,6 +240,7 @@ for jz = 1:Jz
         end
 
     end
+
     sum_vD = sum_vD + RFS.utils.GMRFS(m_kkz, P_kk, wkz);
 end
 
@@ -254,7 +257,7 @@ v_k_unpruned = (1 - pd1) * psi_rho_weights .*  v_kk1 + sum_vD;
 N0_k = N0_kk1 * ((1 - pd0) * psi_rho_weights + sum_Nk); 
 
 %% Prune
-v_k = RFS.utils.prune_gmphd(v_k_unpruned, T, U, Jmax); 
+v_k = RFS.utils.prune_gmrfs(v_k_unpruned, T, U, Jmax); 
  
 %% Outputs
 state_k = RFS.CPHD.cphd_state();

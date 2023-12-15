@@ -7,6 +7,5 @@ build*
 *.blg
 *.log
 *.out
-*.pdf
 *.run.xml
 datasets/*

@@ -1,5 +1,5 @@
 classdef Target_2D
-    % A target occupying 2 spacial dimensions
+    % A target occupying 2 spatial dimensions
 
     properties
         X   (4, 1) double {mustBeReal} = zeros(4, 1) % Current target state [n ndot e edot]'
