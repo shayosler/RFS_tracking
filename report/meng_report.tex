@@ -271,7 +271,7 @@ The weight of each component in the target intensity represents the expected num
   \label{eq:N1k}
   N_k^{(1)} = \sum_j^{\tilde{J}_k}\tilde{w}_k^j
 \end{equation}
-The estimated target states $\hat{X}_k$ can be extracted by selecting the means of the highest weighted components of $\tilde{v}_k$, replicating each component $round(\tilde{w}_K^j)$ times, until there are $N_k^{(1)}$ targets in $\hat{X}_k$. The estimated number of clutter generators is given by $N_k^{(0)}$, and the estimated clutter rate is $\hat{\lambda}_k = p_{Dk}^{(0)}N_k^{(0)}$.
+The estimated target states $\hat{X}_k$ can be extracted by selecting the means of the highest weighted components of $\tilde{v}_k$, replicating each component $round(\tilde{w}_K^j)$ times, until there are $round(N_k^{(1)})$ targets in $\hat{X}_k$. The estimated number of clutter generators is given by $N_k^{(0)}$, and the estimated clutter rate is $\hat{\lambda}_k = p_{Dk}^{(0)}N_k^{(0)}$.
 
 \subsection*{CPHD With Unknown Clutter Rate and Detection Probability}
 The CPHD with unknown clutter rate and detection probability ($\lambda$-$p_D$-CPHD) as proposed in \cite{cphd}, is similar to the $\lambda$-CPHD filter except that it additionally estimates the detection probabilities for clutter and targets, $p_D^{(0)}$ and $p_D^{(1)}$. The notation used when describing this filter is generally the same as that used for the $\lambda$-CPHD, except where noted. The $\lambda$-$p_D$-CPHD by augments the target and clutter state spaces with an extra state defined on $[0, 1]$ representing the detection probability for that target. The target RFS intensity, $v_k^{(1)}$, is represented as a Beta-Gaussian mixture
@@ -454,7 +454,6 @@ where
   p_{Dk|k-1}^{(j,u)} = \frac{ s_{k|k-1}^{(j, u)}}{s_{k|k-1}^{(j, u)} + t_{k|k-1}^{(j, u)}},\;u=0,1
 \end{equation}
 
-
 \begin{equation}
   \label{eq:lpd_wmk}
   w_{Mk}^{(j,u)} = \frac{
@@ -462,8 +461,6 @@ where
     \frac{\langle\ddot{\Psi}_k^1,\ddot{\rho}_{k|k-1}\rangle}{\langle\ddot{\Psi}_k^0,\ddot{\rho}_{k|k-1}\rangle}  }
   {\sum_{i=1}^{J_{k-1}^\tgt}w_{k|k-1}^\tgti + \sum_{i=1}^{J_{k-1}^\clut}w_{k|k-1}^\cluti},\; u=0,1
 \end{equation}
-
-
 
 \begin{equation}
   \label{eq:lpdwD0}
@@ -476,7 +473,6 @@ where
   w_{Dk}^\tgtj(z) = \frac{w_{k|k-1}^\tgtj  \frac{B\left( s_{k|k-1}^\tgtj+1,t_{k|k-1}^\tgtj\right)}{B\left( s_{k|k-1}^\tgtj,t_{k|k-1}^\tgtj\right)}q_k^{(j)}(z)}
   {\sum_{i=1}^{J_{k|k-1}^\clut}w_{k|k-1}^\cluti p_{Dk|k-1}^\cluti\kappa_k(z) +  \sum_{i=1}^{J_{k|k-1}^\tgt}w_{k|k-1}^\tgti p_{Dk|k-1}^\tgti q_k^{(i)}(z)  }
 \end{equation}
-
 
 \begin{equation}
   \label{eq:qz}
@@ -491,7 +487,7 @@ Like the $\lambda$-CPHD filter the number of components in the target and clutte
 For the clutter RFS intensity the distance metric used was the squared Hellinger distance between two Beta distributions
 \begin{equation}
   \label{eq:hellinger_beta}
-  H^2\left( \beta(s_1,t_1),\beta(s_2,t_2)\right) = \frac{B\left( \frac{s_1+s_2}{2},\frac{t_1+t_2}{2}\right)}{\sqrt{B(s_1,t_1)B(s_2,t_2)}}
+  H^2\left( \beta(s_1,t_1),\beta(s_2,t_2)\right) = 1 - \frac{B\left( \frac{s_1+s_2}{2},\frac{t_1+t_2}{2}\right)}{\sqrt{B(s_1,t_1)B(s_2,t_2)}}
 \end{equation}
 and a set $L$ of Beta mixture component were merged into a new component $\tilde{\beta}(\tilde{s},\tilde{t})$ with weight $\tilde{w}$ via
 \begin{equation}
@@ -532,7 +528,6 @@ and a set $L$ of Beta mixture component were merged into a new component $\tilde
 \end{equation}
 For the target RFS intensity the same distance metric, equation \eqref{eq:gauss_dist}, as for the Gaussian mixtures of the $\lambda$-CPHD filter was used. The Gaussian portions of each component were likewise merged via equations \eqref{eq:gauss_merge_w} - \eqref{eq:gauss_merge_P}, and the Beta portions of each component were merged via equations \eqref{eq:beta_merge_w} - \eqref{eq:beta_sigsq}.
 
-
 \subsubsection*{Estimates}
 The estimated cardinalities of the target and clutter random finite sets can be found by summing the weights of all of the components in their respective intensities
 \begin{equation}
@@ -549,7 +544,7 @@ and estimated clutter rate is
   \label{eq:lpd_lambda_hat}
   \hat{\lambda}_k = \sum_j^{\tilde{J}_k^\clut}\tilde{w}^\clut_jp_{Dk}^\clutj 
 \end{equation}
-The target position estimates, $\hat{X}_k$, can be found as for the $\lambda$-CPHD by selecting the means of the highest weighted components of $\tilde{v}_k$, replicating each component $round(\tilde{w}_K^\tgtj)$ times, until there are $N_k^\tgt$ targets in $\hat{X}_k$.
+The target position estimates, $\hat{X}_k$, can be found as for the $\lambda$-CPHD by selecting the means of the highest weighted components of $\tilde{v}_k$, replicating each component $round(\tilde{w}_K^\tgtj)$ times, until there are $round(N_k^\tgt)$ targets in $\hat{X}_k$.
 
 %$\delta$-Generalized Labeled Multi Bernoulli filter\cite{efficient_glmb}
 

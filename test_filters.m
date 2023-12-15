@@ -159,6 +159,8 @@ Ngamma0 = 5;
 %% GMPHD Filter
 
 % Initial conditions and storage for GMPHD
+gmphd_results.label = 'GMPHD';
+gmphd_results.est(r_runs)
 gmphd_v(sim_steps) = RFS.utils.GMRFS();
 gmphd_N = zeros(sim_steps, 1);
 gmphd_Xhat = cell(sim_steps, 1);

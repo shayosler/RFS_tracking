@@ -1,6 +1,6 @@
 function d = hellinger_beta(s1, t1, s2, t2)
-%HELLINGER_BETA Hellinger distance between beta distributions
-% d = HELLINGER_BETA(s1, t1, s2, t2) calculates the Hellinger 
+%HELLINGER_BETA Square Hellinger distance between beta distributions
+% d = HELLINGER_BETA(s1, t1, s2, t2) calculates the Squared Hellinger 
 % distance between two beta distributions defined by parameters
 % s, and t
 % 
