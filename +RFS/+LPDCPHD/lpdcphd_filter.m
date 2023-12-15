@@ -44,12 +44,6 @@ F = model.F;            % State transition matrix x[k+1] = Fx[k], NxN
 kappa = model.kappa;    % Spatial likelihood of clutter
 k_beta = model.kB;      % "Dilation" constant for beta distribution
 
-% Extract params
-Jmax = params.Jmax;
-T = params.T;
-U = params.U;
-w_min = params.w_min;
-
 %% Prediction
 % predicted intensity =
 %   survival intensity
@@ -246,18 +240,23 @@ v0_k_unpruned = RFS.utils.BMRFS(wM0_k, v0_kk1.s, v0_kk1.t + 1) + v0_z;
 v1_k_unpruned = RFS.utils.BGMRFS(wM1_k, v1_kk1.m, v1_kk1.P, v1_kk1.s, v1_kk1.t + 1) + v1_z;
 
 %% Prune
-% TODO: different pruning parameters for clutter only beta mixture vs 
-% beta-gaussian mixture representing targets? There definitely needs to be 
-% because prune_bmrfs uses Hellinger distance which is bounded on [0, 1]
-% but prune_bgmrfs uses a likelihood-like distance which is unbounded
-v0_k = RFS.utils.prune_bmrfs(v0_k_unpruned, T, U, Jmax); 
-v1_k = RFS.utils.prune_bgmrfs(v1_k_unpruned, T, U, Jmax);
+v0_k = RFS.utils.prune_bmrfs(v0_k_unpruned, params.T0, params.U0, params.Jmax0); 
+fprintf('Before merge |v0| = %d. After merge |v0| = %d\n', v0_k_unpruned.J, v0_k.J);
+v1_k = RFS.utils.prune_bgmrfs(v1_k_unpruned, params.T1, params.U1, params.Jmax1);
  
 %% Outputs
 
 % Calculate detection probabilities for pruned update RFSs
 pd0 = v0_k.s ./ (v0_k.s + v0_k.t);
 pd1 = v1_k.s ./ (v1_k.s + v1_k.t);
+
+% Estimates over the whole area
+pd0_mean = mean(pd0);
+pd1_mean = mean(pd1);
+
+pd0_wmean = v0_k.w' * pd0 / sum(v0_k.w);
+pd1_wmean = v1_k.w' * pd1 / sum(v1_k.w);
+
 
 % Estimated clutter rate
 lambda = v0_k.w' * pd0;

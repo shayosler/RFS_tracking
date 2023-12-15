@@ -17,7 +17,7 @@ function [v_out] = prune_bgmrfs(v, T, U, Jmax)
 
 if Jmax <= 0
     warning('Pruning to empty mixture')
-    v_out = GMRFS();
+    v_out = BGMRFS();
     return
 end
 if v.J < Jmax

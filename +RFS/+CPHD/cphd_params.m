@@ -4,8 +4,8 @@ classdef cphd_params
 
     properties
         Nmax        % Maximum number of targets to track
-        U           % Threshold for merging components during pruning        
-        T           % Threshold for discarding components during pruning
+        U           % Distance threshold for merging components during pruning        
+        T           % Weight threshold for discarding components during pruning
         Jmax        % Maximum number of components to keep
         w_min       % Minimum weight to be included in the output state estimate
     end

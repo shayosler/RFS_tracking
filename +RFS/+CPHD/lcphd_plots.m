@@ -12,7 +12,7 @@ h_lambda_true = plot(truth.lambda,  'b--', 'LineWidth', 2);
 title([prefix ' \lambda after t = ' num2str(k)])
 xlabel 'Time step'
 ylabel '\lambda'
-legend('Estimate', 'True')
+legend('Estimate', 'Truth')
 set(gca, 'Fontsize', 18)
 
 % Plot cardinality distribution

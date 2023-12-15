@@ -15,7 +15,7 @@ lcphd = false;
 lpdcphd = true;
 
 % Simulation params
-t_total = 20;
+t_total = 300;
 sim_dt = 1;
 t = 0:sim_dt:t_total;
 sim_steps = numel(t);
@@ -37,7 +37,7 @@ Q = diag([.1 0 .1 0]) * 0;
 
 % Detection and survival probabilities
 true_pd0 = 0.2; % Probability of detecting a "clutter" generator
-true_pd1 = .75; % Probability of detecting a target
+true_pd1 = .95; % Probability of detecting a target
 true_ps0 = 0.9; % Probability of clutter generator survival
 true_ps1 = .9;  % Probability of target survival
 
@@ -190,11 +190,23 @@ if lcphd
     lcphd_figures.n_fig = figure;
     lcphd_figures.map_fig = figure;
     lcphd_figures.ospa_fig = figure;
-    lcpdh_figures.rho_fig = figure;
-    lcpdh_figures.lambda_fig = figure;
+    lcphd_figures.rho_fig = figure;
+    lcphd_figures.lambda_fig = figure;
 end
 
 %% l-pD-CPHD Filter
+% Filter parameters 
+lpdcphd_params = RFS.LPDCPHD.lpdcphd_params();
+lpdcphd_params.Nmax = 100;  % Maximum number of targets to track
+lpdcphd_params.U0 = .03;    % Distance threshold for merging clutter components during pruning
+lpdcphd_params.T0 = 1e-5;   % Weight threshold for discarding clutter components during pruning
+lpdcphd_params.Jmax0 = 100; % Maximum number of clutter components to keep
+lpdcphd_params.U1 = 4;      % Distance threshold for merging target components during pruning
+lpdcphd_params.T1 = 1e-5;   % Weight threshold for discarding target components during pruning
+lpdcphd_params.Jmax1 = 100; % Maximum number of target components to keep
+lpdcphd_params.w_min = 0.5; % Minimum weight to be included in the output state estimate
+
+% System model
 lpdcphd_model = RFS.LPDCPHD.lpdcphd_model();
 
 % Target dynamics
@@ -243,7 +255,8 @@ if lpdcphd
     lpdcphd_figures.ospa_fig = figure;
     lpdcphd_figures.rho_fig = figure;
     lpdcphd_figures.lambda_fig = figure;
-    lpdcphd_figures.pd_fig = figure;
+    lpdcphd_figures.pd0_fig = figure;
+    lpdcphd_figures.pd1_fig = figure;
 end
 
 %% Simulate
@@ -341,7 +354,7 @@ for s = 1:length(seeds)
         end
 
         if lpdcphd
-            [lpdcphd_states(k), lpdcphd_Xhat{k}] = RFS.LPDCPHD.lpdcphd_filter(lpdcphd_states(k-1), measurement, lpdcphd_model, lcphd_params);
+            [lpdcphd_states(k), lpdcphd_Xhat{k}] = RFS.LPDCPHD.lpdcphd_filter(lpdcphd_states(k-1), measurement, lpdcphd_model, lpdcphd_params);
             lpdcphd_ospa(k) = ospa_dist(lpdcphd_Xhat{k}, truth.vis_tgts{k}, ospa_c, ospa_p);
         end
 
@@ -399,7 +412,7 @@ for s = 1:length(seeds)
     end % Simulation run
 
 end % All simulation runs
-
+run_complete = true;
 %% Save data
 data_dir = "./data/";
 now = datetime;
@@ -422,12 +435,18 @@ save(filename);
 fprintf('Saved data to %s\n', filename);
 
 %% Load data
-%clc
-%clear
-%close all
-%data_dir = "./data/";
-%to_load = "20231214T165023.7319_gmphd_lcphd_lpdcphd.mat";
-%load(data_dir + to_load);
+if exist('run_complete', 'var') == 0
+    clc
+    clear
+    close all
+    data_dir = "./data/";
+    to_load = "20231214T195951.7931_lpdcphd.mat";
+    load_path = data_dir + to_load;
+    fprintf('Loading data from %s\n', load_path)
+    load(data_dir + to_load);
+    clear 'run_complete'
+    dbstop 'error'
+end
 
 %% Final plots
 % General RFS plots
@@ -477,5 +496,6 @@ if lpdcphd
         lpdcphd_Xhat, ...
         lpdcphd_ospa);
 
-    lpdcphd_h = RFS.CPHD.lcphd_plots(lpdcphd_figures, 'l-pd-CPHD', k, targets, truth, lpdcphd_Xhat, [lpdcphd_states.lambda]);
+    lpdcphd_h1 = RFS.CPHD.lcphd_plots(lpdcphd_figures, 'l-pd-CPHD', k, targets, truth, lpdcphd_Xhat, [lpdcphd_states.lambda]);
+    lpdcphd_h2 = RFS.LPDCPHD.lpdcphd_plots(lpdcphd_figures, 'l-pd-CPHD', k, targets, truth, lpdcphd_Xhat, lpdcphd_states);
 end

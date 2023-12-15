@@ -16,7 +16,7 @@ function [v_out] = prune_bmrfs(v, T, U, Jmax)
 
 if Jmax <= 0
     warning('Pruning to empty mixture')
-    v_out = GMRFS();
+    v_out = BMRFS();
     return
 end
 if v.J < Jmax
@@ -44,6 +44,7 @@ while any(I)
     dist = zeros(sum(I), 1);
     for i = find(I)'
         dist(i) = RFS.utils.hellinger_beta(v.s(i), v.t(i), v.s(j), v.t(j));
+        %fprintf('H( (%0.3f, %0.3f), (%0.3f, %0.3f) ) = %0.4f\n', v.s(i), v.t(i), v.s(j), v.t(j), dist(i));
         if dist(i) < U
             L = [L i];
         end
