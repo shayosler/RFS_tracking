@@ -229,7 +229,7 @@ for jz = 1:Jz
     % Updated weights
     wD0_k = v0_kk1.w .* (beta(v0_kk1.s + 1, v0_kk1.t) ./ beta(v0_kk1.s, v0_kk1.t)) .* kappaz ./ weight_denom;
     wD1_k = v1_kk1.w .* (beta(v1_kk1.s + 1, v1_kk1.t) ./ beta(v1_kk1.s, v1_kk1.t)) .* qz ./ weight_denom;
-    if any(wD0_k >= 1) || any(wD0_k < 0) || any(wD1_k >= 1) || any(wD1_k < 0)
+    if any(wD0_k > 1) || any(wD0_k < 0) || any(wD1_k > 1) || any(wD1_k < 0)
         warning('Suspicious weight')
     end
     v0_z = v0_z + RFS.utils.BMRFS(wD0_k, v0_kk1.s + 1, v0_kk1.t);   % TODO: avoid extra allocations by pre-allocation vectors for all components then filling them during the loop, and then only creating one RFS at the end
@@ -271,7 +271,6 @@ state_k.N1 = sum(v1_k.w);
 state_k.lambda = lambda;
 state_k.pd0 = pd0;
 state_k.pd1 = pd1;
-
 
 %% Extract a state estimate from the RFS
 % TODO: Take the round(N1) highest components? How then to handle
