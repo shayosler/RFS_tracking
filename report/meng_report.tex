@@ -71,7 +71,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{document}
 
-\section*{Letter of Transmittal}
+\section*{Front Matter}
 - The Gaussian mixture PHD filter and part of the pruning/merging code used in the lpdcphd and cphd were developed as part of the final project for MAE6760. The $\delta$-Generalized Labeled Multi Bernoulli filter implementation was from a reference implementation sourced from https://ba-tuong.vo-au.com/codes.html
 
 
@@ -546,9 +546,15 @@ and estimated clutter rate is
 \end{equation}
 The target position estimates, $\hat{X}_k$, can be found as for the $\lambda$-CPHD by selecting the means of the highest weighted components of $\tilde{v}_k$, replicating each component $round(\tilde{w}_K^\tgtj)$ times, until there are $round(N_k^\tgt)$ targets in $\hat{X}_k$.
 
-%$\delta$-Generalized Labeled Multi Bernoulli filter\cite{efficient_glmb}
+\subsection*{Adaptive Labeled Multi Bernoulli Filter}
+An adaptive labeled multi-Bernoulli (LMB) filter was implemented by combining a (slightly) modified Labeled Multi Bernoulli\cite{lmb} filter with the $\lambda$-$p_D$-CPHD filter described above, using the same architecture that \cite{adaptive_dglmb} used to make an adaptive $\delta$-generalized labeled multi Bernoulli filter. An adaptive labeled multi-Bernoulli filter was chosen over an adaptive $\delta$-generalized labeled multi Bernoulli filter because \cite{lmb} showed that the LMB filter offers performance that is almost as good as the $\delta$-generalized labeled multi Bernoulli filter, but with a significantly lower computational cost.
 
-%Adaptive $\delta$-Generalized Labeled Multi Bernoulli filter\cite{adaptive_dglmb}
+\section*{Results}
+Numerical studies were done to assess the performance of the filters at tracking objects under varying conditions (e.g. clutter rate, detection probability) and with varying parameters. Performance was assessed primarily with the OSPA\cite{OSPA} metric.
+
+A simulation was developed to allow comparisons between the GMPHD, $\lambda$-CPHD $\lambda$-$p_D$-CPHD, and adaptive labeled multi-Bernoulli filters. The simulation environment and all filters used Matlab.
+\subsubsection*{Simulated System}
+
 
 % Bibliography
 \clearpage
