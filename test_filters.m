@@ -12,7 +12,8 @@ rng(seeds(1));
 % Select which filters to run
 gmphd = false;
 lcphd = false;
-lpdcphd = true;
+lpdcphd = false;
+lmb = true;
 
 % Simulation params
 t_total = 300;
@@ -39,7 +40,7 @@ Q = diag([.1 0 .1 0]) * 0;
 true_pd0 = 0.2; % Probability of detecting a "clutter" generator
 true_pd1 = .95; % Probability of detecting a target
 true_ps0 = 0.9; % Probability of clutter generator survival
-true_ps1 = .9;  % Probability of target survival
+true_ps1 = 0.9;  % Probability of target survival
 
 % Sensor
 sensor = RFS.sim.Sonar_RB;
@@ -97,12 +98,17 @@ delete(h_map)
 
 % Dynamics model
 n_states = 2;
+F_cv = [1  sim_dt  0  0;
+        0  1       0  0;
+        0  0       1  sim_dt;
+        0  0       0  1]; % Constant velocity
+F_static = eye(n_states);
 model_F = eye(n_states);
 model_Q = 5 * eye(n_states);
 
 % Detection/survival probabilities
 model_pd0 = true_pd0;
-model_pd1 = true_pd1;
+model_pd1 = .75*true_pd1;
 model_ps0 = true_ps0;
 model_ps1 = true_ps1;
 
@@ -259,6 +265,81 @@ if lpdcphd
     lpdcphd_figures.pd1_fig = figure;
 end
 
+%% Vo LMB Filter
+
+%filter parameters
+lmb_params.T_max= 100;                  %maximum number of tracks
+lmb_params.track_threshold= 1e-3;       %threshold to prune tracks
+
+lmb_params.H_bth= 5;                    %requested number of birth components/hypotheses (for LMB to GLMB casting before update)
+lmb_params.H_sur= 1000;                 %requested number of surviving components/hypotheses (for LMB to GLMB casting before update)
+lmb_params.H_upd= 1000;                 %requested number of updated components/hypotheses (for GLMB update)
+lmb_params.H_max= 1000;                 %cap on number of posterior components/hypotheses (not used yet)
+lmb_params.hyp_threshold= 1e-15;        %pruning threshold for components/hypotheses (not used yet)
+
+lmb_params.L_max= 10;                   %limit on number of Gaussians in each track 
+lmb_params.elim_threshold= 1e-5;        %pruning threshold for Gaussians in each track 
+lmb_params.merge_threshold= 4;          %merging threshold for Gaussians in each track
+
+lmb_params.P_G= 0.9999999;                           %gate size in percentage
+lmb_params.gamma= chi2inv(lmb_params.P_G, n_states);   %inv chi^2 dn gamma value
+lmb_params.gate_flag= 1;                             %gating on or off 1/0
+
+lmb_params.run_flag= 'disp';            %'disp' or 'silence' for on the fly output
+
+% model parameters
+lmb_model.x_dim= n_states;   %dimension of state vector
+lmb_model.z_dim= 2;   %dimension of observation vector
+
+% dynamical model parameters (CV model)
+lmb_model.T= sim_dt;                                     %sampling period
+%lmb_model.A0= [ 1 lmb_model.T; 0 1 ];                         %transition matrix                     
+lmb_model.F= model_F;
+%lmb_model.B0= [ (lmb_model.T^2)/2; lmb_model.T ];
+%lmb_model.B= [ lmb_model.B0 zeros(2,1); zeros(2,1) lmb_model.B0 ];
+%lmb_model.sigma_v = 5;
+lmb_model.Q = model_Q;   %process noise covariance
+
+% survival/death parameters
+lmb_model.P_S= model_ps1;
+lmb_model.Q_S= 1-lmb_model.P_S;
+
+% birth parameters (LMB birth model, single component only)
+lmb_model.T_birth= birth_gmrfs.J;         %no. of LMB birth terms
+lmb_model.L_birth= ones(lmb_model.T_birth,1);                                       %no of Gaussians in each LMB birth term
+lmb_model.r_birth= birth_gmrfs.w;                                                   %prob of birth for each LMB birth term
+lmb_model.w_birth= num2cell(ones(birth_gmrfs.J, 1));                                %weights of GM for each LMB birth term
+lmb_model.m_birth= mat2cell(birth_gmrfs.m, n_states, ones(1, birth_gmrfs.J))';       %means of GM for each LMB birth term
+%lmb_model.B_birth= cell(lmb_model.T_birth,1);                                      %std of GM for each LMB birth term
+lmb_model.P_birth= cell(lmb_model.T_birth,1);                                       %cov of GM for each LMB birth term
+for j = 1:birth_gmrfs.J
+    lmb_model.P_birth{j} = birth_gmrfs.P(:, :, j);
+end
+
+% observation model parameters (noisy x/y only)
+lmb_model.H= H;    %observation matrix
+%lmb_model.D= diag([ 10; 10 ]); 
+lmb_model.R= R;              %observation noise covariance
+
+% detection parameters
+lmb_model.P_D= .98;   %probability of detection in measurements
+lmb_model.Q_D= 1-lmb_model.P_D; %probability of missed detection in measurements
+
+% clutter parameters
+lmb_model.lambda_c= 10;                             %poisson average rate of uniform clutter (per scan)
+%lmb_model.range_c= [ -1000 1000; -1000 1000 ];      %uniform clutter region
+lmb_model.pdf_c= 1 / A_fov; %uniform clutter density
+
+%initial prior
+tt_lmb_update= cell(0,1);
+
+% Data storage
+lmb_est.X = cell(sim_steps, 1);
+lmb_est.N = zeros(sim_steps, 1);
+lmb_est.L = cell(sim_steps, 1);
+
+%% Adaptive Vo LMB
+
 %% Simulate
 
 % Initial conditions and storage variables
@@ -358,6 +439,10 @@ for s = 1:length(seeds)
             lpdcphd_ospa(k) = ospa_dist(lpdcphd_Xhat{k}, truth.vis_tgts{k}, ospa_c, ospa_p);
         end
 
+        if lmb
+            [tt_lmb_update, lmb_est.X{k}, lmb_est.N(k), lmb_est.L{k}] = vo.lmb.lmb_filter(tt_lmb_update, lmb_model, lmb_params, measurement, k);
+        end
+
         fprintf("t = %0.2f\n", t(k));
 
         %% Plots
@@ -440,7 +525,7 @@ if exist('run_complete', 'var') == 0
     clear
     close all
     data_dir = "./data/";
-    to_load = "20231214T195951.7931_lpdcphd.mat";
+    to_load = "20231214T22142.7108_gmphd_lcphd_lpdcphd.mat";
     load_path = data_dir + to_load;
     fprintf('Loading data from %s\n', load_path)
     load(data_dir + to_load);
@@ -479,7 +564,7 @@ if lcphd
         lcphd_states(k).v, ...
         lcphd_Xhat, ...
         lcphd_ospa);    % l-CPHD specific plots
-    lcphd_h = RFS.CPHD.lcphd_plots(lcpdh_figures, 'l-CPHD', k, targets, truth, lcphd_Xhat, lcphd_lambda_hat);
+    lcphd_h = RFS.CPHD.lcphd_plots(lcphd_figures, 'l-CPHD', k, targets, truth, lcphd_Xhat, lcphd_lambda_hat);
 end
 
 if lpdcphd
