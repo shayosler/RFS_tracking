@@ -21,11 +21,10 @@ end
 
 % Simulation params
 n_runs = 10;
-t_total = 200;
+t_total = 100;
 sim_dt = 1;
 t = 0:sim_dt:t_total;
 sim_steps = numel(t);
-
 
 % OSPA paramaters
 ospa_c = 10;
@@ -102,7 +101,7 @@ model_Q = 5 * eye(n_states);
 
 % Detection/survival probabilities
 model_pd0 = true_pd0;
-model_pd1 = true_pd1;
+model_pd1 = .5 * true_pd1;
 model_ps0 = true_ps0;
 model_ps1 = true_ps1;
 
@@ -112,16 +111,18 @@ uniform_bm = load('./models/birth_model_200_uniform_rb.mat');
 uniform_bm = uniform_bm.gamma;
 centerline_bm = RFS.utils.GMRFS([23; 0], [35 0; 0 2], 1); % One component along center
 left_edge_bm = RFS.utils.transform_gmrfs(centerline_bm, 0, 0, -pi/4);
+center_bm = RFS.utils.GMRFS([20; 0], [40 0; 0 80], 1);
 
 left_edge_bm_cv = RFS.utils.GMRFS([16.25; 0; -16.25; 0], [18.5 0 -16.5 0; 0 1 0 0; -16.5 0 18.5 0; 0 0 0 1], 1);
 center_bm_cv = RFS.utils.GMRFS([23; 0; 0; 0], [15 0 0 0; 0 1 0 0; 0 0 15 0; 0 0 0 1], 1);
 
 birth_rate = 0.01; % Expected rate of new births
-birth_gmrfs = birth_rate .* centerline_bm; % uniform_bm;
+birth_gmrfs = birth_rate .* center_bm; % uniform_bm;
 birth_fig = figure;
 h_birth = RFS.utils.plotgmphd(birth_gmrfs, min_n:.1:max_n, min_e:.1:max_e);
 hold on
 h_fov = sensor.plot_fov(0, 0, 0, 'r');
+title 'Birth Model'
 
 % Sensor/measurement model
 n_meas = 2;
@@ -143,6 +144,7 @@ Ngamma0 = 5;
 % Initial conditions and storage for GMPHD
 gmphd_results.label = 'GMPHD';
 gmphd_results.est(n_runs) = struct();
+gmphd_kappa = sensor.lambda / A_fov;
 for i = 1:n_runs
     gmphd_results.est(i).v(sim_steps) = RFS.utils.GMRFS();
     gmphd_results.est(i).N = zeros(sim_steps, 1);
@@ -197,7 +199,7 @@ lcphd_states0(1).N1 = 0;
 lcphd_states0(1).rho = ones(lcphd_params.Nmax + 1, 1) ./ (lcphd_params.Nmax + 1); % initial cardinality distribution is unknown
 
 % Storage for results
-lcphd_results.label = 'l-CPHD';
+lcphd_results.label = '\lambda-CPHD';
 lcphd_results.est(n_runs) = struct();
 lcphd_results.states = cell(n_runs, 1);
 for i = 1:n_runs
@@ -273,7 +275,7 @@ lpdcphd_states0(1).pd0 = 0;
 lpdcphd_states0(1).pd1 = 0;
 
 % Storage for results
-lpdcphd_results.label = 'l-pD-CPHD';
+lpdcphd_results.label = '\lambda-p_D-CPHD';
 lpdcphd_results.est(n_runs) = struct();
 lpdcphd_results.states = cell(1, n_runs);
 for i = 1:n_runs
@@ -340,8 +342,8 @@ lmb_model.P_S= model_ps1;
 lmb_model.Q_S= 1-lmb_model.P_S;
 
 % birth parameters (LMB birth model, single component only)
-lmb_birth_rate = .5;
-lmb_birth_gmrfs = lmb_birth_rate .* centerline_bm;
+lmb_birth_rate = .75;
+lmb_birth_gmrfs = lmb_birth_rate .* center_bm;
 lmb_birth_fig = figure;
 %h_lmb_birth = RFS.utils.plotgmphd(lmb_birth_gmrfs, min_n:.1:max_n, min_e:.1:max_e);
 lmb_model.T_birth= lmb_birth_gmrfs.J;         %no. of LMB birth terms
@@ -425,6 +427,11 @@ end
 % Initial conditions and storage variables
 obs = cell(1, n_runs);
 truth(n_runs).targets = struct();
+t_gmphd = 0;
+t_lcphd = 0;
+t_lpdcphd = 0;
+t_lmb = 0;
+t_almb = 0;
 for i = 1:n_runs
     truth(i).x = zeros(sim_steps, 12);
     truth(i).vis_tgts = cell(sim_steps, 1); % True locations of visible targets
@@ -472,13 +479,13 @@ for r = 1:n_runs
         targets(existing) = targets(existing).step();
 
         % Update system parameters
-        if k < 100
-            sensor.lambda = 7;
-        elseif k < 200
-            sensor.lambda = 12;
-        else
-            sensor.lambda = 2;
-        end
+        %if k < 100
+        %    sensor.lambda = 7;
+        %elseif k < 200
+        %    sensor.lambda = 12;
+        %else
+        %    sensor.lambda = 2;
+        %end
         truth(r).lambda(k) = sensor.lambda;
         truth(r).pd0(k) = true_pd0;
         truth(r).pd1(k) = true_pd1;
@@ -511,6 +518,7 @@ for r = 1:n_runs
 
         % Run filters
         if gmphd
+            tic
             [gmphd_results.est(r).v(k), gmphd_results.est(r).N(k), gmphd_results.est(r).Xhat{k}] = RFS.GMPHD.phd_filter(gmphd_results.est(r).v(k-1), ...
                 gmphd_results.est(r).N(k-1), ...
                 model_F, ...
@@ -521,11 +529,12 @@ for r = 1:n_runs
                 obs{r}{k}', ...
                 H, ...
                 R, ...
-                lcphd_model.kappa, ...
+                gmphd_kappa, ...
                 lcphd_params.U, ...
                 lcphd_params.T, ...
                 lcphd_params.Jmax, ...
                 lcphd_params.w_min);
+            t_gmphd = t_gmphd + toc;
             [gmphd_results.est(r).ospa(k), gmphd_results.est(r).ospa_l(k), gmphd_results.est(r).ospa_n(k)] = ospa_dist(gmphd_results.est(r).Xhat{k}, ...
                 truth(r).vis_tgts{k}, ...
                 ospa_c, ...
@@ -533,7 +542,9 @@ for r = 1:n_runs
         end
 
         if lcphd
+            tic
             [lcphd_results.states{r}(k), lcphd_results.est(r).Xhat{k}, lcphd_results.est(r).lambda_hat(k)] = RFS.LCPHD.lcphd_filter(lcphd_results.states{r}(k-1), measurement, lcphd_model, lcphd_params);
+            t_lcphd = t_lcphd + toc;
             lcphd_results.est(r).N(k) = size(lcphd_results.est(r).Xhat{k}, 2); 
             [lcphd_results.est(r).ospa(k), lcphd_results.est(r).ospa_l(k), lcphd_results.est(r).ospa_n(k)] = ospa_dist(lcphd_results.est(r).Xhat{k}, ...
                 truth(r).vis_tgts{k}, ...
@@ -542,7 +553,9 @@ for r = 1:n_runs
         end
 
         if lpdcphd
+            tic
             [lpdcphd_results.states{r}(k), lpdcphd_results.est(r).Xhat{k}] = RFS.LPDCPHD.lpdcphd_filter(lpdcphd_results.states{r}(k-1), measurement, lpdcphd_model, lpdcphd_params);
+            t_lpdcphd = t_lpdcphd + toc;
             lpdcphd_results.est(r).lambda_hat(k) = lpdcphd_results.states{r}(k).lambda;
             lpdcphd_results.est(r).N(k) = size(lpdcphd_results.est(r).Xhat{k}, 2);
             lpdcphd_results.est(r).pd0_hat(k) = lpdcphd_results.states{r}(k).v0.w' * lpdcphd_results.states{r}(k).pd0 / sum(lpdcphd_results.states{r}(k).v0.w);
@@ -554,18 +567,22 @@ for r = 1:n_runs
         end
 
         if lmb
+            tic
             [lmb_results.tt_lmb_update{r}, lmb_results.est(r).Xhat{k}, lmb_results.est(r).N(k), lmb_results.est(r).L{k}] = vo.lmb.jointlmb_filter(lmb_results.tt_lmb_update{r}, lmb_model, lmb_params, measurement, k);
+            t_lmb = t_lmb + toc;
             [lmb_results.est(r).ospa(k), lmb_results.est(r).ospa_l(k), lmb_results.est(r).ospa_n(k)] = ospa_dist(lmb_results.est(r).Xhat{k}, ...
                 truth(r).vis_tgts{k}, ...
                 ospa_c, ...
                 ospa_p);
         end
 
-        if almb
+        if almb            
             almb_model = lmb_model;
             almb_model.lambda_c = lpdcphd_results.states{r}(k).lambda;
             almb_model.P_D = lpdcphd_results.est(r).pd1_hat(k);
+            tic
             [almb_results.tt_lmb_update{r}, almb_results.est(r).Xhat{k}, almb_results.est(r).N(k), almb_results.est(r).L{k}] = vo.lmb.jointlmb_filter(almb_results.tt_lmb_update{r}, almb_model, lmb_params, measurement, k);
+            t_almb = t_almb + toc;
             [almb_results.est(r).ospa(k), almb_results.est(r).ospa_l(k), almb_results.est(r).ospa_n(k)] = ospa_dist(almb_results.est(r).Xhat{k}, ...
                 truth(r).vis_tgts{k}, ...
                 ospa_c, ...
@@ -613,7 +630,7 @@ if exist('run_complete', 'var') == 0
     clear
     close all
     data_dir = "./data/";
-    to_load = "20231216T5718.9425_gmphd_lcphd_lpdcphd_lmb_almb.mat";
+    to_load = "20231216T6958.0626_gmphd_lcphd_lpdcphd_lmb_almb.mat";
     load_path = data_dir + to_load;
     fprintf('Loading data from %s\n', load_path)
     load(data_dir + to_load);
@@ -723,6 +740,14 @@ for r = runs_to_plot
     end
 end
 
+%% Runtime stats
+total_steps = n_runs * sim_steps;
+fprintf("GMPHD: Total time = %0.2f, mean time = %0.2f\n", t_gmphd, t_gmphd / total_steps);
+fprintf("l-CPHD: Total time = %0.2f, mean time = %0.2f\n", t_lcphd, t_lcphd / total_steps);
+fprintf("l-pd-CPHD: Total time = %0.2f, mean time = %0.2f\n", t_lpdcphd, t_lpdcphd / total_steps);
+fprintf("LMB: Total time = %0.2f, mean time = %0.2f\n", t_lmb, t_lmb/ total_steps);
+fprintf("ALMB: Total time = %0.2f, mean time = %0.2f\n", t_almb, t_almb / total_steps);
+
 %% Aggregate plots and data
 RFS.utils.aggregate_plots(sim_steps, truth, gmphd_results, lcphd_results, lpdcphd_results, lmb_results, almb_results);
 
@@ -750,7 +775,7 @@ for k = 1:n_tgt
 end
 
 % Targets initialized from a random location, moving in a random direction
-vel = 0.1;
+vel = 0.2;
 for k = 1:n_tgt
     % Target dynamics
     targets(k).F = F;

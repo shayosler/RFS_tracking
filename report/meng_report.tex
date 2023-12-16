@@ -591,6 +591,14 @@ Additionally, some number of clutter returns with locations sampled from a unifo
 The first set of tests compared the performance of ``optimal'' filters on systems with varying characteristics. The filters are ``optimal'' in that they are configured with exact system parameters.
 
 \subsection*{Comparing Parameters}
+\begin{tabular}{ c c c c c c c }
+   & RMS $N_{err}$ & Mean $N_{err}$ & Std $N_{err}$ & Mean OSPA & Mean OSPA Loc. & Mean OSPA Card.\\
+  $GMPHD$ & 5.29 & -2.1 & 5.09 & 4.8 & 1.31 & 4.4 \\
+  $\lambda-CPHD$ & 4.42 & 1 & 4.52 & 4.32 & 1.55 & 3.68 \\
+  $\lambda-p_D-CPHD$ & 6.61 & 5.45 & 3.91 & 6.62 & 1.16 & 6.36 \\
+  $LMB$ & 5.26 & 4.55 & 2.77 & 6.12 & 1.57 & 5.45 \\
+  $Adaptive LMB$ & 6.09 & 5.64 & 2.42 & 7.1 & 1.46 & 6.55 \\
+\end{tabular}
 \subsubsection*{Target Detection Probability ($p_D^{(1)}$)}
 \subsubsection*{Target Survival Probability ($p_S^{(1)}$)}
 \subsubsection*{Target Birth Model ($\Gamma^{(1)}$)}

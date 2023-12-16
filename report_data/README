@@ -1,0 +1,17 @@
+20231216T122327.9915_gmphd_lcphd_lpdcphd_lmb_almb.mat:
+ - 10x100 steps
+ - "optimal" filters
+ - sensor.lambda = 10
+ - pd0 = .2
+ - pd1 = .95
+ - ps0 = .9
+ - ps1 = .9
+
+20231216T132242.3095_gmphd_lcphd_lpdcphd_lmb_almb.mat
+ - 10x100 steps
+ - model pD = .75 true pD, otherwise "optimal" filters
+ - sensor.lambda = 10
+ - pd0 = .2
+ - pd1 = .95
+ - ps0 = .9
+ - ps1 = .9
