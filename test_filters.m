@@ -101,9 +101,10 @@ model_Q = 5 * eye(n_states);
 
 % Detection/survival probabilities
 model_pd0 = true_pd0;
-model_pd1 = .5 * true_pd1;
+model_pd1 = true_pd1;
 model_ps0 = true_ps0;
 model_ps1 = true_ps1;
+model_lambda = sensor.lambda;
 
 % Target birth model
 %bm = load('./models/birth_model_100.mat');
@@ -117,11 +118,11 @@ left_edge_bm_cv = RFS.utils.GMRFS([16.25; 0; -16.25; 0], [18.5 0 -16.5 0; 0 1 0 
 center_bm_cv = RFS.utils.GMRFS([23; 0; 0; 0], [15 0 0 0; 0 1 0 0; 0 0 15 0; 0 0 0 1], 1);
 
 birth_rate = 0.01; % Expected rate of new births
-birth_gmrfs = birth_rate .* center_bm; % uniform_bm;
+birth_gmrfs = birth_rate .* left_edge_bm; %center_bm; % uniform_bm;
 birth_fig = figure;
 h_birth = RFS.utils.plotgmphd(birth_gmrfs, min_n:.1:max_n, min_e:.1:max_e);
 hold on
-h_fov = sensor.plot_fov(0, 0, 0, 'r');
+h_birth_fov = sensor.plot_fov(0, 0, 0, 'r');
 title 'Birth Model'
 
 % Sensor/measurement model
@@ -144,7 +145,7 @@ Ngamma0 = 5;
 % Initial conditions and storage for GMPHD
 gmphd_results.label = 'GMPHD';
 gmphd_results.est(n_runs) = struct();
-gmphd_kappa = sensor.lambda / A_fov;
+gmphd_kappa = model_lambda / A_fov;
 for i = 1:n_runs
     gmphd_results.est(i).v(sim_steps) = RFS.utils.GMRFS();
     gmphd_results.est(i).N = zeros(sim_steps, 1);
@@ -342,8 +343,14 @@ lmb_model.P_S= model_ps1;
 lmb_model.Q_S= 1-lmb_model.P_S;
 
 % birth parameters (LMB birth model, single component only)
+% "good" birth model
+%lmb_birth_rate = .75;
+%lmb_birth_gmrfs = lmb_birth_rate .* center_bm;
+
+% "bad" birth model
 lmb_birth_rate = .75;
-lmb_birth_gmrfs = lmb_birth_rate .* center_bm;
+lmb_birth_gmrfs = lmb_birth_rate .* left_edge_bm;
+
 lmb_birth_fig = figure;
 %h_lmb_birth = RFS.utils.plotgmphd(lmb_birth_gmrfs, min_n:.1:max_n, min_e:.1:max_e);
 lmb_model.T_birth= lmb_birth_gmrfs.J;         %no. of LMB birth terms
@@ -367,7 +374,7 @@ lmb_model.P_D= .98;   %probability of detection in measurements
 lmb_model.Q_D= 1-lmb_model.P_D; %probability of missed detection in measurements
 
 % clutter parameters
-lmb_model.lambda_c= 10;                             %poisson average rate of uniform clutter (per scan)
+lmb_model.lambda_c= model_lambda;                             %poisson average rate of uniform clutter (per scan)
 %lmb_model.range_c= [ -1000 1000; -1000 1000 ];      %uniform clutter region
 lmb_model.pdf_c= 1 / A_fov; %uniform clutter density
 
@@ -747,6 +754,14 @@ fprintf("l-CPHD: Total time = %0.2f, mean time = %0.2f\n", t_lcphd, t_lcphd / to
 fprintf("l-pd-CPHD: Total time = %0.2f, mean time = %0.2f\n", t_lpdcphd, t_lpdcphd / total_steps);
 fprintf("LMB: Total time = %0.2f, mean time = %0.2f\n", t_lmb, t_lmb/ total_steps);
 fprintf("ALMB: Total time = %0.2f, mean time = %0.2f\n", t_almb, t_almb / total_steps);
+
+%% Other plots
+delete([h_birth h_birth_fov]);
+figure(birth_fig)
+h_birth = RFS.utils.plotgmphd(birth_gmrfs, min_n:.1:max_n, min_e:.1:max_e);
+hold on
+h_birth_fov = sensor.plot_fov(0, 0, 0, 'r');
+title 'Birth Model'
 
 %% Aggregate plots and data
 RFS.utils.aggregate_plots(sim_steps, truth, gmphd_results, lcphd_results, lpdcphd_results, lmb_results, almb_results);
