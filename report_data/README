@@ -35,9 +35,18 @@
  - ps1 = .9
 
 
-??
+20231216T153647.3062_gmphd_lcphd_lpdcphd_lmb_almb.mat
  - 10x100 steps
- - model ps = .99, otherwise "optimal" filters
+ - model ps1 = .99, otherwise "optimal" filters
+ - sensor.lambda = 10
+ - pd0 = .2
+ - pd1 = .95
+ - ps0 = .9
+ - ps1 = .9
+
+20231216T165828.8285_gmphd_lcphd_lpdcphd_lmb_almb.mat
+ - 10x100 steps
+ - model lambda set to 0.5*sensor lambda, otherwise "optimal" filters
  - sensor.lambda = 10
  - pd0 = .2
  - pd1 = .95
