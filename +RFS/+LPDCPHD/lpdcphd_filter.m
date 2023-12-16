@@ -123,6 +123,28 @@ end
 cdn_predict = cdn_predict/sum(cdn_predict);
 rho_kk1 = cdn_predict;
 
+%% TODO: Need a step here(? or maybe before predict?) that accounts for components moving out of field of view
+% Estimates (especially of pD) get thrown off by targets moving out of the
+% field of view
+%
+% One option:
+% Sepearate v_kk1 into two intensities, one with all of the components that are 
+% in the FOV, and one one with all of the components out of the FOV: v_in and
+% v_out.
+%
+% Shift each bin in rho down by round(sum(v_out.w)) indices to reflect the 
+% components expected to now be out of the FOV and not be observed. 
+% 
+% Run the normal update, pruning, merging, estimate extraction on v_in.
+% 
+% Add v_out back into v_in to get the final v_k. Shift each bin in rho_k
+% back up by round(sum(v_out.w))
+% 
+% This might work, but it treats the field of view as a hard boundary, and
+% neglects the fact that positions aren't known exactly. Need some way to
+% incorporate uncertainty in the actual FOV (mostly d/t uncertainty in
+% sensor pose) as well as uncertainty in in target pose.
+
 %% Update
 
 % Extract measurement

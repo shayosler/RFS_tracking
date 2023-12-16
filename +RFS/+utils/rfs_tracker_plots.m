@@ -1,4 +1,4 @@
-function handles = rfs_tracker_plots(figures, prefix, k, x, sensor, z, z_true, targets, bounds, v, Xhat, ospa)
+function handles = rfs_tracker_plots(figures, prefix, k, x, sensor, z, z_true, targets, bounds, v, Xhat, ospa, ospa_l, ospa_n)
 %rfs_tracker_plots Generate plots common to all trackers
 % Inputs:
 %   prefix
@@ -18,6 +18,9 @@ end
 
 % Plot target trajectories
 handles = [];
+if ~isfield(figures, 'map_fig') || isempty(figures.map_fig)
+    figures.map_fig = figure;
+end
 figure(figures.map_fig);
 for n = 1:length(targets)
     traj = targets(n).get_trajectory();
@@ -77,6 +80,9 @@ axis equal;
 axis(bounds)
 
 % Plot current intensity
+if ~isfield(figures, 'v_fig') || isempty(figures.v_fig)
+    figures.v_fig = figure;
+end
 figure(figures.v_fig);
 northings = bounds(3):.1:bounds(4);
 eastings = bounds(1):.1:bounds(2);
@@ -88,7 +94,11 @@ axis equal;
 axis(bounds)
 colorbar
 
+
 % Plot true vs estimated number of targets
+if ~isfield(figures, 'n_fig') || isempty(figures.n_fig)
+    figures.n_fig = figure;
+end
 figure(figures.n_fig);
 h_nx = plot(n_trackers, 'g', 'LineWidth', 2);
 hold on
@@ -101,13 +111,29 @@ legend('Tracked Objects', 'True Targets')
 set(gca, 'Fontsize', 18)
 
 % Plot OSPA
+if ~isfield(figures, 'ospa_fig') || isempty(figures.ospa_fig)
+    figures.ospa_fig = figure;
+end
 figure(figures.ospa_fig);
+subplot(3, 1, 1)
 h_ospa = plot(ospa(2:end), 'LineWidth', 2);
-title([prefix ' OSPA Metric'])
 xlabel 'Time step'
-ylabel 'OSPA Metric'
+ylabel 'OSPA Distance'
+title([prefix ' OSPA Metrics'])
 set(gca, 'Fontsize', 18)
-handles = [handles h_ospa];
+
+subplot(3, 1, 2)
+h_ospa_l = plot(ospa_l(2:end), 'LineWidth', 2);
+xlabel 'Time step'
+ylabel 'OSPA Location'
+set(gca, 'Fontsize', 18)
+
+subplot(3, 1, 3)
+h_ospa_n = plot(ospa_n(2:end), 'LineWidth', 2);
+xlabel 'Time step'
+ylabel 'OSPA Cardinality'
+set(gca, 'Fontsize', 18)
+handles = [handles h_ospa h_ospa_l h_ospa_n];
 
 %% print out some statistices
 n_err = n_true - n_trackers;

@@ -4,10 +4,9 @@ clear
 close all
 
 %% Set up
-%seeds = 52490;
-%seeds = [1 2 3 4 5 6 7 8 9 10];
-seeds = 1;
-rng(seeds(1));
+%seed = 52490;
+seed = 1;
+rng(seed);
 
 % Select which filters to run
 gmphd = true;
@@ -21,11 +20,12 @@ if almb && ~lpdcphd
 end
 
 % Simulation params
+n_runs = 10;
 t_total = 200;
 sim_dt = 1;
 t = 0:sim_dt:t_total;
 sim_steps = numel(t);
-n_runs = length(seeds);
+
 
 % OSPA paramaters
 ospa_c = 10;
@@ -39,13 +39,13 @@ F = [1  sim_dt  0  0;
      0  1       0  0;
      0  0       1  sim_dt;
      0  0       0  1]; % Constant velocity
-Q = diag([.1 0 .1 0]) * .1;
+Q = diag([.1 0 .1 0]) * .05;
 
 % Detection and survival probabilities
 true_pd0 = 0.2; % Probability of detecting a "clutter" generator
 true_pd1 = .95; % Probability of detecting a target
-true_ps0 = 0.99; % Probability of clutter generator survival
-true_ps1 = 0.99; % Probability of target survival
+true_ps0 = 0.9; % Probability of clutter generator survival
+true_ps1 = 0.9; % Probability of target survival
 
 % Sensor
 sensor = RFS.sim.Sonar_RB;
@@ -74,77 +74,30 @@ bounds = [min_e max_e min_n max_n];
 northings = min_n:.1:max_n;
 eastings = min_e-10:.1:max_e;
 
-% Initialize targets. 
+% Number of targets. 
 n_tgt = 10;  
-targets(n_tgt) = RFS.sim.Target_2D;
-% Line of targets moving from left to right
-spacing = 4;
-for k = 1:n_tgt
-    targets(k).F = F;
-    targets(k).Q = Q;
-    tgt_e = min_e;
-    tgt_n = 10 + 2.5 * k;
-    tgt_ndot = 0;
-    tgt_edot = .25;
-    x0 = [tgt_n tgt_ndot tgt_e tgt_edot];
-    targets(k).X = x0;
-end
-
-% Targets initialized from a random location, moving in a random direction
-vel = 0.25;
-for k = 1:n_tgt
-    % Target dynamics
-    targets(k).F = F;
-    targets(k).Q = Q;
-
-    % Choose a random target starting location
-    tgt_brng = (rand() * sensor.fov / 2) - sensor.fov/4; 
-    tgt_rng = (rand() * sensor.range / 2) + sensor.range/4;
-    tgt_psi = rand() * 2 * pi;
-
-    tgt_e = tgt_rng * sind(tgt_brng);
-    tgt_n = tgt_rng * cosd(tgt_brng);
-    tgt_ndot = vel * cos(tgt_psi);
-    tgt_edot = vel * sin(tgt_psi);
-    x0 = [tgt_n tgt_ndot tgt_e tgt_edot];
-    targets(k).X = x0;
-
-    % Target birth and death times
-    targets(k).t_birth = randi([0, round(sim_steps / 5)]);
-end
-
-% Line of targets stationary in center of field of view
-%for k = 1:n_tgt
-%    targets(k).F = F;
-%    targets(k).Q = Q;
-%    tgt_e = 0;
-%    tgt_n = 10 + 2.5 * k;
-%    tgt_ndot = 0;
-%    tgt_edot = 0;
-%    x0 = [tgt_n tgt_ndot tgt_e tgt_edot];
-%    targets(k).X = x0;
-%end
 
 % Plot map
 map_fig = figure;
-h_map = RFS.utils.plot_targets(targets, 'b*'); 
-hold on
-title 'Target Locations'
-set(gca, 'Fontsize', 18)
-axis equal;
-axis(bounds)
-delete(h_map)
 
 %% Some models/parameters that will be used in multiple filters
-
 % Dynamics model
-n_states = 2;
+% Constant velocity
 F_cv = [1  sim_dt  0  0;
         0  1       0  0;
         0  0       1  sim_dt;
-        0  0       0  1]; % Constant velocity
-F_static = eye(n_states);
-model_F = eye(n_states);
+        0  0       0  1];
+H_cv = [1 0 0 0;
+        0 0 1 0];
+
+% Static
+F_static = eye(2);
+H_static = [1 0;
+            0 1];
+
+% Set model to use
+model_F = F_static;
+n_states = size(model_F, 2);
 model_Q = 5 * eye(n_states);
 
 % Detection/survival probabilities
@@ -160,12 +113,18 @@ uniform_bm = uniform_bm.gamma;
 centerline_bm = RFS.utils.GMRFS([23; 0], [35 0; 0 2], 1); % One component along center
 left_edge_bm = RFS.utils.transform_gmrfs(centerline_bm, 0, 0, -pi/4);
 
+left_edge_bm_cv = RFS.utils.GMRFS([16.25; 0; -16.25; 0], [18.5 0 -16.5 0; 0 1 0 0; -16.5 0 18.5 0; 0 0 0 1], 1);
+center_bm_cv = RFS.utils.GMRFS([23; 0; 0; 0], [15 0 0 0; 0 1 0 0; 0 0 15 0; 0 0 0 1], 1);
+
 birth_rate = 0.01; % Expected rate of new births
 birth_gmrfs = birth_rate .* centerline_bm; % uniform_bm;
 birth_fig = figure;
-h_birth = RFS.utils.plotgmphd(birth_gmrfs, [min_n:.1:max_n], [min_e:.1:max_e]);
+h_birth = RFS.utils.plotgmphd(birth_gmrfs, min_n:.1:max_n, min_e:.1:max_e);
+hold on
+h_fov = sensor.plot_fov(0, 0, 0, 'r');
 
 % Sensor/measurement model
+n_meas = 2;
 sigma_rb = [.25 0;   % range
             0   1];   % bearing
 
@@ -173,7 +132,7 @@ sigma_rb = [.25 0;   % range
 R = sigma_rb;
 R(2, 2) = sensor.range * sind(sigma_rb(2, 2));
 R = R_0deg_true;
-H = eye(n_states);
+H = H_static;
 
 % Mean clutter birth rate
 % lower -> smaller lambda_hat (or maybe just takes longer to converge?)
@@ -183,19 +142,22 @@ Ngamma0 = 5;
 
 % Initial conditions and storage for GMPHD
 gmphd_results.label = 'GMPHD';
-%gmphd_results.est(n_runs)
-gmphd_v(sim_steps) = RFS.utils.GMRFS();
-gmphd_N = zeros(sim_steps, 1);
-gmphd_Xhat = cell(sim_steps, 1);
-gmphd_ospa = zeros(sim_steps, 1);
-
+gmphd_results.est(n_runs) = struct();
+for i = 1:n_runs
+    gmphd_results.est(i).v(sim_steps) = RFS.utils.GMRFS();
+    gmphd_results.est(i).N = zeros(sim_steps, 1);
+    gmphd_results.est(i).Xhat = cell(sim_steps, 1);
+    gmphd_results.est(i).ospa = ones(sim_steps, 1) * ospa_c;
+    gmphd_results.est(i).ospa_l = ones(sim_steps, 1) * ospa_c;
+    gmphd_results.est(i).ospa_n = ones(sim_steps, 1) * ospa_c;
+end
 % Figures for GMPHD plots
 if gmphd
-    gmphd_figures = struct();
-    gmphd_figures.v_fig = figure;
-    gmphd_figures.n_fig = figure;
-    gmphd_figures.map_fig = figure;
-    gmphd_figures.ospa_fig = figure;
+    gmphd_results.figures = struct();
+    gmphd_results.figures.v_fig = figure;
+    gmphd_results.figures.n_fig = figure;
+    gmphd_results.figures.map_fig = figure;
+    gmphd_results.figures.ospa_fig = figure;
 end
 
 %% l-CPHD Filter
@@ -227,26 +189,37 @@ lcphd_model.gamma1 = birth_gmrfs;
 lcphd_model.Ngamma0 = Ngamma0;  % Mean clutter birth rate, 
 lcphd_model.kappa = 1 / A_fov;  % Clutter is equally likely anywhere
 
-% Initial conditions and storage for l-CPHD
-lcphd_Xhat = cell(sim_steps, 1);
-lcphd_lambda_hat = zeros(sim_steps, 1);
-lcphd_lambda_hat(1) = 1;
-lcphd_ospa = zeros(sim_steps, 1);
-lcphd_states(sim_steps, 1) = RFS.LCPHD.cphd_state();
-lcphd_states(1).v = RFS.utils.GMRFS();
-lcphd_states(1).N0 = 0;
-lcphd_states(1).N1 = 0;
-lcphd_states(1).rho = ones(lcphd_params.Nmax + 1, 1) ./ (lcphd_params.Nmax + 1); % initial cardinality distribution is unknown
+% Initial conditions
+lcphd_states0(sim_steps, 1) = RFS.LCPHD.cphd_state();
+lcphd_states0(1).v = RFS.utils.GMRFS();
+lcphd_states0(1).N0 = 0;
+lcphd_states0(1).N1 = 0;
+lcphd_states0(1).rho = ones(lcphd_params.Nmax + 1, 1) ./ (lcphd_params.Nmax + 1); % initial cardinality distribution is unknown
+
+% Storage for results
+lcphd_results.label = 'l-CPHD';
+lcphd_results.est(n_runs) = struct();
+lcphd_results.states = cell(n_runs, 1);
+for i = 1:n_runs
+    lcphd_results.states{i} = lcphd_states0;
+    lcphd_results.est(i).N = zeros(sim_steps, 1);
+    lcphd_results.est(i).Xhat = cell(sim_steps, 1);
+    lcphd_results.est(i).ospa = ones(sim_steps, 1) * ospa_c;
+    lcphd_results.est(i).ospa_l = ones(sim_steps, 1) * ospa_c;
+    lcphd_results.est(i).ospa_n = ones(sim_steps, 1) * ospa_c;
+    lcphd_results.est(i).lambda_hat = zeros(sim_steps, 1);
+    lcphd_results.est(i).lambda_hat(1) = 1;
+end
 
 % Figures for plotting
 if lcphd
-    lcphd_figures = struct();
-    lcphd_figures.v_fig = figure;
-    lcphd_figures.n_fig = figure;
-    lcphd_figures.map_fig = figure;
-    lcphd_figures.ospa_fig = figure;
-    lcphd_figures.rho_fig = figure;
-    lcphd_figures.lambda_fig = figure;
+    lcphd_results.figures = struct();
+    lcphd_results.figures.v_fig = figure;
+    lcphd_results.figures.n_fig = figure;
+    lcphd_results.figures.map_fig = figure;
+    lcphd_results.figures.ospa_fig = figure;
+    lcphd_results.figures.rho_fig = figure;
+    lcphd_results.figures.lambda_fig = figure;
 end
 
 %% l-pD-CPHD Filter
@@ -289,29 +262,44 @@ lpdcphd_model.kappa = 1 / A_fov;  % Clutter is equally likely anywhere
 lpdcphd_model.kB = 1.5;
 
 % Initial conditions and storage for l-pd-CPHD
-lpdcphd_Xhat = cell(sim_steps, 1);
-lpdcphd_ospa = zeros(sim_steps, 1);
-lpdcphd_states(sim_steps, 1) = RFS.LPDCPHD.lpdcphd_state();
-lpdcphd_states(1).v0 = RFS.utils.BMRFS();
-lpdcphd_states(1).v1 = RFS.utils.BGMRFS();
-lpdcphd_states(1).rho = ones(lcphd_params.Nmax + 1, 1) ./ (lcphd_params.Nmax + 1); % initial cardinality distribution is unknown
-lpdcphd_states(1).N0 = 0;
-lpdcphd_states(1).N1 = 0;
-lpdcphd_states(1).lambda = 0;
-lpdcphd_states(1).pd0 = 0;
-lpdcphd_states(1).pd1 = 0;
+lpdcphd_states0(sim_steps, 1) = RFS.LPDCPHD.lpdcphd_state();
+lpdcphd_states0(1).v0 = RFS.utils.BMRFS();
+lpdcphd_states0(1).v1 = RFS.utils.BGMRFS();
+lpdcphd_states0(1).rho = ones(lcphd_params.Nmax + 1, 1) ./ (lcphd_params.Nmax + 1); % initial cardinality distribution is unknown
+lpdcphd_states0(1).N0 = 0;
+lpdcphd_states0(1).N1 = 0;
+lpdcphd_states0(1).lambda = 0;
+lpdcphd_states0(1).pd0 = 0;
+lpdcphd_states0(1).pd1 = 0;
+
+% Storage for results
+lpdcphd_results.label = 'l-pD-CPHD';
+lpdcphd_results.est(n_runs) = struct();
+lpdcphd_results.states = cell(1, n_runs);
+for i = 1:n_runs
+    lpdcphd_results.states{i} = lpdcphd_states0;
+    lpdcphd_results.est(i).N = zeros(sim_steps, 1);
+    lpdcphd_results.est(i).Xhat = cell(sim_steps, 1);
+    lpdcphd_results.est(i).ospa = ones(sim_steps, 1) * ospa_c;
+    lpdcphd_results.est(i).ospa_l = ones(sim_steps, 1) * ospa_c;
+    lpdcphd_results.est(i).ospa_n = ones(sim_steps, 1) * ospa_c;
+    lpdcphd_results.est(i).lambda_hat = zeros(sim_steps, 1);
+    lpdcphd_results.est(i).lambda_hat(1) = 1;
+    lpdcphd_results.est(i).pd0_hat = zeros(sim_steps, 1);
+    lpdcphd_results.est(i).pd1_hat = zeros(sim_steps, 1);
+end
 
 % l-pd-CPHD figures
 if lpdcphd
-    lpdcphd_figures = struct();
-    lpdcphd_figures.v_fig = figure;
-    lpdcphd_figures.n_fig = figure;
-    lpdcphd_figures.map_fig = figure;
-    lpdcphd_figures.ospa_fig = figure;
-    lpdcphd_figures.rho_fig = figure;
-    lpdcphd_figures.lambda_fig = figure;
-    lpdcphd_figures.pd0_fig = figure;
-    lpdcphd_figures.pd1_fig = figure;
+    lpdcphd_results.figures = struct();
+    lpdcphd_results.figures.v_fig = figure;
+    lpdcphd_results.figures.n_fig = figure;
+    lpdcphd_results.figures.map_fig = figure;
+    lpdcphd_results.figures.ospa_fig = figure;
+    lpdcphd_results.figures.rho_fig = figure;
+    lpdcphd_results.figures.lambda_fig = figure;
+    lpdcphd_results.figures.pd0_fig = figure;
+    lpdcphd_results.figures.pd1_fig = figure;
 end
 
 %% Vo LMB Filter
@@ -354,8 +342,8 @@ lmb_model.Q_S= 1-lmb_model.P_S;
 % birth parameters (LMB birth model, single component only)
 lmb_birth_rate = .5;
 lmb_birth_gmrfs = lmb_birth_rate .* centerline_bm;
-lmg_birth_fig = figure;
-h_lmb_birth = RFS.utils.plotgmphd(lmb_birth_gmrfs, min_n:.1:max_n, min_e:.1:max_e);
+lmb_birth_fig = figure;
+%h_lmb_birth = RFS.utils.plotgmphd(lmb_birth_gmrfs, min_n:.1:max_n, min_e:.1:max_e);
 lmb_model.T_birth= lmb_birth_gmrfs.J;         %no. of LMB birth terms
 lmb_model.L_birth= ones(lmb_model.T_birth,1);                                       %no of Gaussians in each LMB birth term
 lmb_model.r_birth= lmb_birth_gmrfs.w;                                                   %prob of birth for each LMB birth term
@@ -382,70 +370,102 @@ lmb_model.lambda_c= 10;                             %poisson average rate of uni
 lmb_model.pdf_c= 1 / A_fov; %uniform clutter density
 
 %initial prior
-tt_lmb_update= cell(0,1);
+%tt_lmb_update= cell(0,1);
 
-% Data storage
-lmb_est.X = cell(sim_steps, 1);
-lmb_est.N = zeros(sim_steps, 1);
-lmb_est.L = cell(sim_steps, 1);
-lmb_ospa = zeros(sim_steps, 1);
+% Storage for results
+lmb_results.label = 'LMB';
+lmb_results.est(n_runs) = struct();
+lmb_results.tt_lmb_update = cell(1, n_runs);
+for i = 1:n_runs
+    lmb_results.tt_lmb_update{i} = cell(0, 1);
+    lmb_results.est(i).N = zeros(sim_steps, 1);
+    lmb_results.est(i).Xhat = cell(sim_steps, 1);
+    lmb_results.est(i).L = cell(sim_steps, 1);
+    lmb_results.est(i).ospa = ones(sim_steps, 1) * ospa_c;
+    lmb_results.est(i).ospa_l = ones(sim_steps, 1) * ospa_c;
+    lmb_results.est(i).ospa_n = ones(sim_steps, 1) * ospa_c;
+end
 
 % Figures for lmb
 if lmb
-    lmb_figures = struct();
-    lmb_figures.v_fig = figure;
-    lmb_figures.n_fig = figure;
-    lmb_figures.map_fig = figure;
-    lmb_figures.ospa_fig = figure;
+    lmb_results.figures = struct();
+    lmb_results.figures.v_fig = figure;
+    lmb_results.figures.n_fig = figure;
+    lmb_results.figures.map_fig = figure;
+    lmb_results.figures.ospa_fig = figure;
 end
 
 %% Adaptive Vo LMB
 
-%initial prior
-tt_almb_update= cell(0,1);
+% Storage for results
+almb_results.label = 'Adaptive LMB';
+almb_results.est(n_runs) = struct();
+almb_results.tt_lmb_update = cell(1, n_runs);
+for i = 1:n_runs
+    almb_results.tt_lmb_update{i} = cell(0, 1);
+    almb_results.est(i).N = zeros(sim_steps, 1);
+    almb_results.est(i).Xhat = cell(sim_steps, 1);
+    almb_results.est(i).L = cell(sim_steps, 1);
+    almb_results.est(i).ospa = ones(sim_steps, 1) * ospa_c;
+    almb_results.est(i).ospa_l = ones(sim_steps, 1) * ospa_c;
+    almb_results.est(i).ospa_n = ones(sim_steps, 1) * ospa_c;
+end
 
-% Data storage
-almb_est.X = cell(sim_steps, 1);
-almb_est.N = zeros(sim_steps, 1);
-almb_est.L = cell(sim_steps, 1);
-almb_ospa = zeros(sim_steps, 1);
-
-% Figures for lmb
+% Figures for adaptive lmb
 if almb
-    almb_figures = struct();
-    almb_figures.v_fig = figure;
-    almb_figures.n_fig = figure;
-    almb_figures.map_fig = figure;
-    almb_figures.ospa_fig = figure;
+    almb_results.figures = struct();
+    almb_results.figures.v_fig = figure;
+    almb_results.figures.n_fig = figure;
+    almb_results.figures.map_fig = figure;
+    almb_results.figures.ospa_fig = figure;
 end
 
 %% Simulate
 
 % Initial conditions and storage variables
-x = zeros(sim_steps, 12);
-obs = cell(sim_steps, 1);
-truth.vis_tgts = cell(sim_steps, 1);    % True locations of visible targets
-truth.lambda = zeros(sim_steps, 1);     % True clutter rate
-truth.pd0 = zeros(sim_steps, 1);        % True clutter detection probability
-truth.pd1 = zeros(sim_steps, 1);        % True target detection probability
-truth.lambda(1) = sensor.lambda;
-truth.pd0(1) = true_pd0;
-truth.pd1(1) = true_pd1;
+obs = cell(1, n_runs);
+truth(n_runs).targets = struct();
+for i = 1:n_runs
+    truth(i).x = zeros(sim_steps, 12);
+    truth(i).vis_tgts = cell(sim_steps, 1); % True locations of visible targets
+    truth(i).lambda = zeros(sim_steps, 1);  % True clutter rate
+    truth(i).pd0 = zeros(sim_steps, 1);     % True clutter detection probability
+    truth(i).pd1 = zeros(sim_steps, 1);     % True target detection probability
+    truth(i).N = zeros(sim_steps, 1);       % True target cardinality    
+    truth(i).lambda(1) = sensor.lambda;         
+    truth(i).pd0(1) = true_pd0;
+    truth(i).pd1(1) = true_pd1;
+
+    obs{i} = cell(sim_steps, 1);
+end
 
 rfs_handles = [];
+initial_targets = generate_targets(F, Q, bounds, n_tgt, sim_steps, sensor);
 
-% Run one simulator run for each seed
-for s = 1:length(seeds)
-    seed = seeds(s);
-    rng(seed);
+% Run multiple simulation runs
+for r = 1:n_runs
+    % Generate new targets
+    %targets = generate_targets(F, Q, bounds, n_tgt, sim_steps, sensor);
+
+    % Reset targets
+    targets = initial_targets;
+
+    %figure(map_fig);
+    %h_map = RFS.utils.plot_targets(targets, 'b*');
+    %hold on
+    %title 'Target Locations'
+    %set(gca, 'Fontsize', 18)
+    %axis equal;
+    %axis(bounds)
+    %delete(h_map)
 
     % Simulate
     for k = 2:sim_steps
         % Update vehicle position
-        x(k, :) = x(1, :); %grid_trajectory(tk, u, l, d, psi0, n0, e0, z0);
-        n = x(k, 1);
-        e = x(k, 2);
-        psi = x(k, 6);
+        truth(r).x(k, :) = truth(r).x(1, :); %grid_trajectory(tk, u, l, d, psi0, n0, e0, z0);
+        n = truth(r).x(k, 1);
+        e = truth(r).x(k, 2);
+        psi = truth(r).x(k, 6);
 
         % Update target positions
         existing = [targets.t_birth] <= k & [targets.t_death] > k;
@@ -459,45 +479,46 @@ for s = 1:length(seeds)
         else
             sensor.lambda = 2;
         end
-        truth.lambda(k) = sensor.lambda;
-        truth.pd0(k) = true_pd0;
-        truth.pd1(k) = true_pd1;
+        truth(r).lambda(k) = sensor.lambda;
+        truth(r).pd0(k) = true_pd0;
+        truth(r).pd1(k) = true_pd1;
 
         % Get measurements of targets
-        [r, b, r_true, b_true] = sensor.measure([n, e, psi], targets(existing));
+        [rng, brng, r_true, b_true] = sensor.measure([n, e, psi], targets(existing));
 
         % Convert to absolute coordinates
-        b = b + psi;
-        n_obs = n + r .* cosd(b);
-        e_obs = e + r .* sind(b);
+        brng = brng + psi;
+        n_obs = n + rng .* cosd(brng);
+        e_obs = e + rng .* sind(brng);
         b_true = b_true + psi;
         n_obs_true = n + r_true .* cosd(b_true);
         e_obs_true = e + r_true .* sind(b_true);
 
         % Store the observations
-        obs{k} = zeros(length(r), 2);
-        obs{k}(:, 1) = n_obs;
-        obs{k}(:, 2) = e_obs;
-        truth.vis_tgts{k} = zeros(2, length(r_true));
-        truth.vis_tgts{k}(1, :) = n_obs_true;
-        truth.vis_tgts{k}(2, :) = e_obs_true;
+        obs{r}{k} = zeros(length(rng), 2);
+        obs{r}{k}(:, 1) = n_obs;
+        obs{r}{k}(:, 2) = e_obs;
+        truth(r).vis_tgts{k} = zeros(2, length(r_true));
+        truth(r).vis_tgts{k}(1, :) = n_obs_true;
+        truth(r).vis_tgts{k}(2, :) = e_obs_true;
+        truth(r).N(k) = length(r_true);
 
         % Generate measurement
         measurement = RFS.LCPHD.cphd_measurement();
-        measurement.Z = obs{k}';
+        measurement.Z = obs{r}{k}';
         measurement.H = H;
         measurement.R = R;
 
-        % Update estimates
+        % Run filters
         if gmphd
-            [gmphd_v(k), gmphd_N(k), gmphd_Xhat{k}] = RFS.GMPHD.phd_filter(gmphd_v(k-1), ...
-                gmphd_N(k-1), ...
+            [gmphd_results.est(r).v(k), gmphd_results.est(r).N(k), gmphd_results.est(r).Xhat{k}] = RFS.GMPHD.phd_filter(gmphd_results.est(r).v(k-1), ...
+                gmphd_results.est(r).N(k-1), ...
                 model_F, ...
                 model_Q, ...
                 model_ps1, ...
                 model_pd1, ...
                 birth_gmrfs, ...
-                obs{k}', ...
+                obs{r}{k}', ...
                 H, ...
                 R, ...
                 lcphd_model.kappa, ...
@@ -505,84 +526,57 @@ for s = 1:length(seeds)
                 lcphd_params.T, ...
                 lcphd_params.Jmax, ...
                 lcphd_params.w_min);
-            gmphd_ospa(k) = ospa_dist(gmphd_Xhat{k}, truth.vis_tgts{k}, ospa_c, ospa_p);
+            [gmphd_results.est(r).ospa(k), gmphd_results.est(r).ospa_l(k), gmphd_results.est(r).ospa_n(k)] = ospa_dist(gmphd_results.est(r).Xhat{k}, ...
+                truth(r).vis_tgts{k}, ...
+                ospa_c, ...
+                ospa_p);
         end
 
         if lcphd
-            [lcphd_states(k), lcphd_Xhat{k}, lcphd_lambda_hat(k)] = RFS.LCPHD.lcphd_filter(lcphd_states(k-1), measurement, lcphd_model, lcphd_params);
-            lcphd_ospa(k) = ospa_dist(lcphd_Xhat{k}, truth.vis_tgts{k}, ospa_c, ospa_p);
+            [lcphd_results.states{r}(k), lcphd_results.est(r).Xhat{k}, lcphd_results.est(r).lambda_hat(k)] = RFS.LCPHD.lcphd_filter(lcphd_results.states{r}(k-1), measurement, lcphd_model, lcphd_params);
+            lcphd_results.est(r).N(k) = size(lcphd_results.est(r).Xhat{k}, 2); 
+            [lcphd_results.est(r).ospa(k), lcphd_results.est(r).ospa_l(k), lcphd_results.est(r).ospa_n(k)] = ospa_dist(lcphd_results.est(r).Xhat{k}, ...
+                truth(r).vis_tgts{k}, ...
+                ospa_c, ...
+                ospa_p);
         end
 
         if lpdcphd
-            [lpdcphd_states(k), lpdcphd_Xhat{k}] = RFS.LPDCPHD.lpdcphd_filter(lpdcphd_states(k-1), measurement, lpdcphd_model, lpdcphd_params);
-            lpdcphd_ospa(k) = ospa_dist(lpdcphd_Xhat{k}, truth.vis_tgts{k}, ospa_c, ospa_p);
+            [lpdcphd_results.states{r}(k), lpdcphd_results.est(r).Xhat{k}] = RFS.LPDCPHD.lpdcphd_filter(lpdcphd_results.states{r}(k-1), measurement, lpdcphd_model, lpdcphd_params);
+            lpdcphd_results.est(r).lambda_hat(k) = lpdcphd_results.states{r}(k).lambda;
+            lpdcphd_results.est(r).N(k) = size(lpdcphd_results.est(r).Xhat{k}, 2);
+            lpdcphd_results.est(r).pd0_hat(k) = lpdcphd_results.states{r}(k).v0.w' * lpdcphd_results.states{r}(k).pd0 / sum(lpdcphd_results.states{r}(k).v0.w);
+            lpdcphd_results.est(r).pd1_hat(k) = lpdcphd_results.states{r}(k).v1.w' * lpdcphd_results.states{r}(k).pd1 / sum(lpdcphd_results.states{r}(k).v1.w);
+            [lpdcphd_results.est(r).ospa(k), lpdcphd_results.est(r).ospa_l(k), lpdcphd_results.est(r).ospa_n(k)] = ospa_dist(lpdcphd_results.est(r).Xhat{k}, ...
+                truth(r).vis_tgts{k}, ...
+                ospa_c, ...
+                ospa_p);
         end
 
         if lmb
-            [tt_lmb_update, lmb_est.X{k}, lmb_est.N(k), lmb_est.L{k}] = vo.lmb.jointlmb_filter(tt_lmb_update, lmb_model, lmb_params, measurement, k);
-            lmb_ospa(k) = ospa_dist(lmb_est.X{k}, truth.vis_tgts{k}, ospa_c, ospa_p);
+            [lmb_results.tt_lmb_update{r}, lmb_results.est(r).Xhat{k}, lmb_results.est(r).N(k), lmb_results.est(r).L{k}] = vo.lmb.jointlmb_filter(lmb_results.tt_lmb_update{r}, lmb_model, lmb_params, measurement, k);
+            [lmb_results.est(r).ospa(k), lmb_results.est(r).ospa_l(k), lmb_results.est(r).ospa_n(k)] = ospa_dist(lmb_results.est(r).Xhat{k}, ...
+                truth(r).vis_tgts{k}, ...
+                ospa_c, ...
+                ospa_p);
         end
 
         if almb
             almb_model = lmb_model;
-            almb_model.lambda_c = lpdcphd_states(k).lambda;
-            almb_model.P_D = lpdcphd_states(k).v1.w' * lpdcphd_states(k).pd1 / sum(lpdcphd_states(k).v1.w);
-            [tt_almb_update, almb_est.X{k}, almb_est.N(k), almb_est.L{k}] = vo.lmb.jointlmb_filter(tt_almb_update, almb_model, lmb_params, measurement, k);
-            almb_ospa(k) = ospa_dist(almb_est.X{k}, truth.vis_tgts{k}, ospa_c, ospa_p);
+            almb_model.lambda_c = lpdcphd_results.states{r}(k).lambda;
+            almb_model.P_D = lpdcphd_results.est(r).pd1_hat(k);
+            [almb_results.tt_lmb_update{r}, almb_results.est(r).Xhat{k}, almb_results.est(r).N(k), almb_results.est(r).L{k}] = vo.lmb.jointlmb_filter(almb_results.tt_lmb_update{r}, almb_model, lmb_params, measurement, k);
+            [almb_results.est(r).ospa(k), almb_results.est(r).ospa_l(k), almb_results.est(r).ospa_n(k)] = ospa_dist(almb_results.est(r).Xhat{k}, ...
+                truth(r).vis_tgts{k}, ...
+                ospa_c, ...
+                ospa_p);
         end        
 
-        fprintf("t = %0.2f\n", t(k));
-
-        %% Plots
-        if mod(k, 10) == 0 && false
-            delete(rfs_handles);
-            if gmphd
-                gmphd_handles = RFS.utils.rfs_tracker_plots(gmphd_figures, ...
-                    'GMPHD', ...
-                    k, ...
-                    [n e psi], ...
-                    sensor, ...
-                    obs, ...
-                    truth.vis_tgts, ...
-                    targets, ...
-                    bounds, ...
-                    gmphd_v(k), ...
-                    gmphd_Xhat, ...
-                    gmphd_ospa);
-                rfs_handles = [rfs_handles gmphd_handles];
-            end
-            if lcphd
-                lcphd_handles = RFS.utils.rfs_tracker_plots(lcphd_figures, ...
-                    'l-CPHD', ...
-                    k, ...
-                    [n e psi], ...
-                    sensor, ...
-                    obs, ...
-                    truth.vis_tgts, ...
-                    targets, ...
-                    bounds, ...
-                    lcphd_states(k).v, ...
-                    lcphd_Xhat, ...
-                    lcphd_ospa);
-                rfs_handles = [rfs_handles lcphd_handles];
-            end
-            if lpdcphd
-                lpdcphd_handles = RFS.utils.rfs_tracker_plots(lpdcphd_figures, ...
-                    'l-pd-CPHD', ...
-                    k, ...
-                    [n e psi], ...
-                    sensor, ...
-                    obs, ...
-                    truth.vis_tgts, ...
-                    targets, ...
-                    bounds, ...
-                    lpdcphd_states(k).v1, ...
-                    lpdcphd_Xhat, ...
-                    lpdcphd_ospa);
-                rfs_handles = [rfs_handles lpdcphd_handles];
-            end
-        end % for k = 2:sim_steps
+        fprintf("Run %d/%d, t = %d/%d\n", r, n_runs, k, sim_steps);
     end % Simulation run
+
+    % Save true target tracks
+    truth(r).targets = targets;
 
 end % All simulation runs
 run_complete = true;
@@ -606,6 +600,9 @@ end
 if lmb
     filename = filename + "_lmb";
 end
+if almb
+    filename = filename + "_almb";
+end
 filename = filename + ".mat";
 save(filename);
 fprintf('Saved data to %s\n', filename);
@@ -616,7 +613,7 @@ if exist('run_complete', 'var') == 0
     clear
     close all
     data_dir = "./data/";
-    to_load = "20231214T22142.7108_gmphd_lcphd_lpdcphd.mat";
+    to_load = "20231216T5718.9425_gmphd_lcphd_lpdcphd_lmb_almb.mat";
     load_path = data_dir + to_load;
     fprintf('Loading data from %s\n', load_path)
     load(data_dir + to_load);
@@ -624,84 +621,166 @@ if exist('run_complete', 'var') == 0
     dbstop 'error'
 end
 
-%% Final plots
+%% Plots from individual runs
 % General RFS plots
-delete(rfs_handles);
-if gmphd
-    gmphd_handles = RFS.utils.rfs_tracker_plots(gmphd_figures, ...
-        'GMPHD', ...
-        k, ...
-        [n e psi], ...
-        sensor, ...
-        obs, ...
-        truth.vis_tgts, ...
-        targets, ...
-        bounds, ...
-        gmphd_v(k), ...
-        gmphd_Xhat, ...
-        gmphd_ospa);
+runs_to_plot = []; % Runs to plot
+for r = runs_to_plot
+    delete(rfs_handles);
+    rfs_handles = [];
+    if gmphd
+        gmphd_handles = RFS.utils.rfs_tracker_plots(gmphd_results.figures, ...
+            gmphd_results.label, ...
+            k, ...
+            [n e psi], ...
+            sensor, ...
+            obs{r}, ...
+            truth(r).vis_tgts, ...
+            truth(r).targets, ...
+            bounds, ...
+            gmphd_results.est(r).v(end), ...
+            gmphd_results.est(r).Xhat, ...
+            gmphd_results.est(r).ospa, ...
+            gmphd_results.est(r).ospa_l, ...
+            gmphd_results.est(r).ospa_n);
+        rfs_handles = [rfs_handles gmphd_handles];
+    end
+
+    if lcphd
+        lcphd_handles = RFS.utils.rfs_tracker_plots(lcphd_results.figures, ...
+            lcphd_results.label, ...
+            k, ...
+            [n e psi], ...
+            sensor, ...
+            obs{r}, ...
+            truth(r).vis_tgts, ...
+            truth(r).targets, ...
+            bounds, ...
+            lcphd_results.states{r}(end).v, ...
+            lcphd_results.est(r).Xhat, ...
+            lcphd_results.est(r).ospa, ...
+            lcphd_results.est(r).ospa_l, ...
+            lcphd_results.est(r).ospa_n);    
+        % l-CPHD specific plots
+        lcphd_h = RFS.LCPHD.lcphd_plots(lcphd_results.figures, lcphd_results.label, k, truth(r).targets, truth(r), lcphd_results.est(r).Xhat, lcphd_results.est(r).lambda_hat);
+        rfs_handles = [rfs_handles lcphd_h lcphd_handles];
+    end
+
+    if lpdcphd
+        lpdcphd_handles = RFS.utils.rfs_tracker_plots(lpdcphd_results.figures, ...
+            lpdcphd_results.label, ...
+            k, ...
+            [n e psi], ...
+            sensor, ...
+            obs{r}, ...
+            truth(r).vis_tgts, ...
+            truth(r).targets, ...
+            bounds, ...
+            lpdcphd_results.states{r}(end).v1, ...
+            lpdcphd_results.est(r).Xhat, ...
+            lpdcphd_results.est(r).ospa, ...
+            lpdcphd_results.est(r).ospa_l, ...
+            lpdcphd_results.est(r).ospa_n);
+
+        lpdcphd_h1 = RFS.LCPHD.lcphd_plots(lpdcphd_results.figures, lpdcphd_results.label, k, truth(r).targets, truth(r), lpdcphd_results.est(r).Xhat, lpdcphd_results.est(r).lambda_hat);
+        lpdcphd_h2 = RFS.LPDCPHD.lpdcphd_plots(lpdcphd_results.figures, lpdcphd_results.label, k, truth(r).targets, truth(r), lpdcphd_results.est(r).Xhat, lpdcphd_results.states{r});
+        rfs_handles = [rfs_handles lpdcphd_handles lpdcphd_h1 lpdcphd_h2];
+    end
+
+    if lmb
+        lmb_handles = RFS.utils.rfs_tracker_plots(lmb_results.figures, ...
+            lmb_results.label, ...
+            k, ...
+            [n e psi], ...
+            sensor, ...
+            obs{r}, ...
+            truth(r).vis_tgts, ...
+            truth(r).targets, ...
+            bounds, ...
+            RFS.utils.GMRFS(), ... % No easy intensity plot
+            lmb_results.est(r).Xhat, ...
+            lmb_results.est(r).ospa, ...
+            lmb_results.est(r).ospa_l, ...
+            lmb_results.est(r).ospa_n);
+        rfs_handles = [rfs_handles lmb_handles];
+    end
+
+    if almb
+        almb_handles = RFS.utils.rfs_tracker_plots(almb_results.figures, ...
+            almb_results.label, ...
+            k, ...
+            [n e psi], ...
+            sensor, ...
+            obs{r}, ...
+            truth(r).vis_tgts, ...
+            truth(r).targets, ...
+            bounds, ...
+            RFS.utils.GMRFS(), ... % No easy intensity plot
+            almb_results.est(r).Xhat, ...
+            almb_results.est(r).ospa, ...
+            almb_results.est(r).ospa_l, ...
+            almb_results.est(r).ospa_n);
+        rfs_handles = [rfs_handles almb_handles];
+    end
 end
 
-if lcphd
-    lcphd_handles = RFS.utils.rfs_tracker_plots(lcphd_figures, ...
-        'l-CPHD', ...
-        k, ...
-        [n e psi], ...
-        sensor, ...
-        obs, ...
-        truth.vis_tgts, ...
-        targets, ...
-        bounds, ...
-        lcphd_states(k).v, ...
-        lcphd_Xhat, ...
-        lcphd_ospa);    % l-CPHD specific plots
-    lcphd_h = RFS.LCPHD.lcphd_plots(lcphd_figures, 'l-CPHD', k, targets, truth, lcphd_Xhat, lcphd_lambda_hat);
+%% Aggregate plots and data
+RFS.utils.aggregate_plots(sim_steps, truth, gmphd_results, lcphd_results, lpdcphd_results, lmb_results, almb_results);
+
+%% Target generation function
+function targets = generate_targets(F, Q, bounds, n_tgt, sim_steps, sensor)
+%targets = generate_targets(F, Q, bounds, n_tgts, sim_steps)
+% Generate n targets
+min_e = bounds(1);
+max_e = bounds(2);
+min_n = bounds(3);
+max_n = bounds(4);
+
+targets(n_tgt) = RFS.sim.Target_2D;
+% Line of targets moving from left to right
+spacing = 2.5;
+for k = 1:n_tgt
+    targets(k).F = F;
+    targets(k).Q = Q;
+    tgt_e = min_e;
+    tgt_n = 10 + spacing * k;
+    tgt_ndot = 0;
+    tgt_edot = .25;
+    x0 = [tgt_n tgt_ndot tgt_e tgt_edot];
+    targets(k).X = x0;
 end
 
-if lpdcphd
-    lpdcphd_handles = RFS.utils.rfs_tracker_plots(lpdcphd_figures, ...
-        'l-pd-CPHD', ...
-        k, ...
-        [n e psi], ...
-        sensor, ...
-        obs, ...
-        truth.vis_tgts, ...
-        targets, ...
-        bounds, ...
-        lpdcphd_states(k).v1, ...
-        lpdcphd_Xhat, ...
-        lpdcphd_ospa);
+% Targets initialized from a random location, moving in a random direction
+vel = 0.1;
+for k = 1:n_tgt
+    % Target dynamics
+    targets(k).F = F;
+    targets(k).Q = Q;
 
-    lpdcphd_h1 = RFS.LCPHD.lcphd_plots(lpdcphd_figures, 'l-pd-CPHD', k, targets, truth, lpdcphd_Xhat, [lpdcphd_states.lambda]);
-    lpdcphd_h2 = RFS.LPDCPHD.lpdcphd_plots(lpdcphd_figures, 'l-pd-CPHD', k, targets, truth, lpdcphd_Xhat, lpdcphd_states);
+    % Choose a random target starting location
+    tgt_brng = (rand() * sensor.fov / 2) - sensor.fov/4;
+    tgt_rng = (rand() * sensor.range / 2) + sensor.range/4;
+    tgt_psi = rand() * 2 * pi;
+
+    tgt_e = tgt_rng * sind(tgt_brng);
+    tgt_n = tgt_rng * cosd(tgt_brng);
+    tgt_ndot = vel * cos(tgt_psi);
+    tgt_edot = vel * sin(tgt_psi);
+    x0 = [tgt_n tgt_ndot tgt_e tgt_edot];
+    targets(k).X = x0;
+
+    % Target birth and death times
+    targets(k).t_birth = randi([0, round(sim_steps / 5)]);
 end
 
-if lmb
-    lmb_handles = RFS.utils.rfs_tracker_plots(lmb_figures, ...
-        'LMB', ...
-        k, ...
-        [n e psi], ...
-        sensor, ...
-        obs, ...
-        truth.vis_tgts, ...
-        targets, ...
-        bounds, ...
-        RFS.utils.GMRFS(), ... % No easy intensity plot
-        lmb_est.X, ...
-        lmb_ospa);
-end
-
-if almb
-    almb_handles = RFS.utils.rfs_tracker_plots(almb_figures, ...
-        'Adaptive-LMB', ...
-        k, ...
-        [n e psi], ...
-        sensor, ...
-        obs, ...
-        truth.vis_tgts, ...
-        targets, ...
-        bounds, ...
-        RFS.utils.GMRFS(), ... % No easy intensity plot
-        almb_est.X, ...
-        almb_ospa);
+% Line of targets stationary in center of field of view
+%for k = 1:n_tgt
+%    targets(k).F = F;
+%    targets(k).Q = Q;
+%    tgt_e = 0;
+%    tgt_n = 10 + spacing * k;
+%    tgt_ndot = 0;
+%    tgt_edot = 0;
+%    x0 = [tgt_n tgt_ndot tgt_e tgt_edot];
+%    targets(k).X = x0;
+%end
 end

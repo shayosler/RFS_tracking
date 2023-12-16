@@ -230,7 +230,7 @@ where
 \end{equation}
 \begin{equation}
   \label{eq:qz}
-  q_k^{(j)} = \mathcal{N}(z;Hm_{k|k-1}^{(j)}, HP_{k|k-1}^{(j)}H^T + R)
+  q_k^{(j)}(z) = \mathcal{N}(z;Hm_{k|k-1}^{(j)}, HP_{k|k-1}^{(j)}H^T + R)
 \end{equation}
 and $\langle a, b \rangle$ denotes the inner product of $a$ and $b$.
 
@@ -476,7 +476,7 @@ where
 
 \begin{equation}
   \label{eq:qz}
-  q_k^{(j)} = \mathcal{N}(z;Hm_{k|k-1}^{(j)}, HP_{k|k-1}^{(j)}H^T + R)
+  q_k^{(j)}(z) = \mathcal{N}(z;Hm_{k|k-1}^{(j)}, HP_{k|k-1}^{(j)}H^T + R)
 \end{equation}
 with $\langle a, b \rangle$ denoting the inner product of $a$ and $b$ and $B(a, b)$ the Beta function.
 
@@ -550,15 +550,51 @@ The target position estimates, $\hat{X}_k$, can be found as for the $\lambda$-CP
 An adaptive labeled multi-Bernoulli (LMB) filter was implemented by combining a (slightly) modified Labeled Multi Bernoulli\cite{lmb} filter with the $\lambda$-$p_D$-CPHD filter described above, using the same architecture that \cite{adaptive_dglmb} used to make an adaptive $\delta$-generalized labeled multi Bernoulli filter. An adaptive labeled multi-Bernoulli filter was chosen over an adaptive $\delta$-generalized labeled multi Bernoulli filter because \cite{lmb} showed that the LMB filter offers performance that is almost as good as the $\delta$-generalized labeled multi Bernoulli filter, but with a significantly lower computational cost.
 
 \section*{Results}
-Numerical studies were done to assess the performance of the filters at tracking objects under varying conditions (e.g.\ clutter rate, detection probability) and with varying parameters. The system simulation and filters were run in Matlab. Performance was assessed primarily with the optimal subpattern assignment (OSPA)\cite{OSPA} metric.
+Numerical studies were done to assess the performance of the filters at tracking objects under varying conditions (e.g.\ clutter rate, detection probability) and with varying parameters. The system simulation and filters were run in Matlab. Performance was assessed primarily with the optimal subpattern assignment (OSPA)\cite{OSPA} metric. 10 moving targets were simulated moving through the field of view of a simulated sensor. The targets were simulated with a linear constant velocity model with additive Gaussian noise. The simulation time step was set to $1$ for simplicity.
 
-The
+\begin{align}
+  x_{k+1} &= Fx_k + \mathcal{N}(0, Q)\\
+  F &=
+  \begin{bmatrix}
+    1 & 0 & 1 & 0\\
+    0 & 1 & 0 & 1\\
+    0 & 0 & 1 & 0\\
+    0 & 0 & 0 & 1
+  \end{bmatrix}\;\;
+                Q
+                = \sigma^2_v
+  \begin{bmatrix}
+    \frac{1}{4} & 0 & \frac{1}{2} & 0\\
+    0 & \frac{1}{4} & 0 & \frac{1}{2}\\
+     \frac{1}{2} & 0 & 1 & 0\\
+    0 &  \frac{1}{2} & 0 & 1
+  \end{bmatrix}\\           
+\end{align}
 
 
+The simulated sensor was a (very) rough approximation of a forward looking sonar. The ``sonar'' had a range of 40m, and a field of view of 90 degrees.
 
-\subsection*{}
+The targets were each ``born'' at a random time step during the first 20\% of the simulation duration. Each target was initialized at randomly chosen location within the center 45 degrees of the sonar field of view, at a range between 10m and 20m. The targets were initialized with a random direction of travel with an initial velocity of .25m/s.
+
+At each time step a measurement was generated for each target that was within the field of view with probability $p_D = 0.9$. The measurements consisted of the target position corrupted by 0 mean Gaussian noise with covariance
+\begin{equation}
+  \label{eq:R_true}
+  R =
+  \begin{bmatrix}
+    .25 & 0\\
+    0 & .75 \\
+  \end{bmatrix}
+\end{equation}
+
+Additionally, some number of clutter returns with locations sampled from a uniform distribution over the field of view were returned. The number of clutter returns on any given time step was a random number sampled from a Poisson distribution with parameter $\lambda = 10$, so on average each measurement would have an equal number of clutter and target returns.
+\subsection*{Comparing Systems}
 The first set of tests compared the performance of ``optimal'' filters on systems with varying characteristics. The filters are ``optimal'' in that they are configured with exact system parameters.
-\subsubsection*{Simulated System}
+
+\subsection*{Comparing Parameters}
+\subsubsection*{Target Detection Probability ($p_D^{(1)}$)}
+\subsubsection*{Target Survival Probability ($p_S^{(1)}$)}
+\subsubsection*{Target Birth Model ($\Gamma^{(1)}$)}
+
 
 
 % Bibliography
