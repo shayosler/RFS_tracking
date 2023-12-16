@@ -550,9 +550,14 @@ The target position estimates, $\hat{X}_k$, can be found as for the $\lambda$-CP
 An adaptive labeled multi-Bernoulli (LMB) filter was implemented by combining a (slightly) modified Labeled Multi Bernoulli\cite{lmb} filter with the $\lambda$-$p_D$-CPHD filter described above, using the same architecture that \cite{adaptive_dglmb} used to make an adaptive $\delta$-generalized labeled multi Bernoulli filter. An adaptive labeled multi-Bernoulli filter was chosen over an adaptive $\delta$-generalized labeled multi Bernoulli filter because \cite{lmb} showed that the LMB filter offers performance that is almost as good as the $\delta$-generalized labeled multi Bernoulli filter, but with a significantly lower computational cost.
 
 \section*{Results}
-Numerical studies were done to assess the performance of the filters at tracking objects under varying conditions (e.g. clutter rate, detection probability) and with varying parameters. Performance was assessed primarily with the OSPA\cite{OSPA} metric.
+Numerical studies were done to assess the performance of the filters at tracking objects under varying conditions (e.g.\ clutter rate, detection probability) and with varying parameters. The system simulation and filters were run in Matlab. Performance was assessed primarily with the optimal subpattern assignment (OSPA)\cite{OSPA} metric.
 
-A simulation was developed to allow comparisons between the GMPHD, $\lambda$-CPHD $\lambda$-$p_D$-CPHD, and adaptive labeled multi-Bernoulli filters. The simulation environment and all filters used Matlab.
+The
+
+
+
+\subsection*{}
+The first set of tests compared the performance of ``optimal'' filters on systems with varying characteristics. The filters are ``optimal'' in that they are configured with exact system parameters.
 \subsubsection*{Simulated System}
 
 

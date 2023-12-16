@@ -44,8 +44,8 @@ Q = diag([.1 0 .1 0]) * .1;
 % Detection and survival probabilities
 true_pd0 = 0.2; % Probability of detecting a "clutter" generator
 true_pd1 = .95; % Probability of detecting a target
-true_ps0 = 0.9; % Probability of clutter generator survival
-true_ps1 = 0.9; % Probability of target survival
+true_ps0 = 0.99; % Probability of clutter generator survival
+true_ps1 = 0.99; % Probability of target survival
 
 % Sensor
 sensor = RFS.sim.Sonar_RB;
@@ -88,6 +88,29 @@ for k = 1:n_tgt
     tgt_edot = .25;
     x0 = [tgt_n tgt_ndot tgt_e tgt_edot];
     targets(k).X = x0;
+end
+
+% Targets initialized from a random location, moving in a random direction
+vel = 0.25;
+for k = 1:n_tgt
+    % Target dynamics
+    targets(k).F = F;
+    targets(k).Q = Q;
+
+    % Choose a random target starting location
+    tgt_brng = (rand() * sensor.fov / 2) - sensor.fov/4; 
+    tgt_rng = (rand() * sensor.range / 2) + sensor.range/4;
+    tgt_psi = rand() * 2 * pi;
+
+    tgt_e = tgt_rng * sind(tgt_brng);
+    tgt_n = tgt_rng * cosd(tgt_brng);
+    tgt_ndot = vel * cos(tgt_psi);
+    tgt_edot = vel * sin(tgt_psi);
+    x0 = [tgt_n tgt_ndot tgt_e tgt_edot];
+    targets(k).X = x0;
+
+    % Target birth and death times
+    targets(k).t_birth = randi([0, round(sim_steps / 5)]);
 end
 
 % Line of targets stationary in center of field of view
@@ -160,7 +183,7 @@ Ngamma0 = 5;
 
 % Initial conditions and storage for GMPHD
 gmphd_results.label = 'GMPHD';
-gmphd_results.est(r_runs)
+%gmphd_results.est(n_runs)
 gmphd_v(sim_steps) = RFS.utils.GMRFS();
 gmphd_N = zeros(sim_steps, 1);
 gmphd_Xhat = cell(sim_steps, 1);
@@ -177,7 +200,7 @@ end
 
 %% l-CPHD Filter
 % Filter parameters 
-lcphd_params = RFS.CPHD.cphd_params();
+lcphd_params = RFS.LCPHD.cphd_params();
 lcphd_params.Nmax = 100;      % Maximum number of tracked objects
 lcphd_params.U = 4;           % Threshold for merging components during pruning
 lcphd_params.T = 1e-5;        % Threshold for discarding components during pruning
@@ -185,7 +208,7 @@ lcphd_params.Jmax = 100;      % Maximum number of components to keep during prun
 lcphd_params.w_min = 0.5;     % Minimum weight to track
 
 % l-CPHD system model 
-lcphd_model = RFS.CPHD.cphd_model();
+lcphd_model = RFS.LCPHD.cphd_model();
 
 % Target dynamics
 lcphd_model.F = model_F;
@@ -209,7 +232,7 @@ lcphd_Xhat = cell(sim_steps, 1);
 lcphd_lambda_hat = zeros(sim_steps, 1);
 lcphd_lambda_hat(1) = 1;
 lcphd_ospa = zeros(sim_steps, 1);
-lcphd_states(sim_steps, 1) = RFS.CPHD.cphd_state();
+lcphd_states(sim_steps, 1) = RFS.LCPHD.cphd_state();
 lcphd_states(1).v = RFS.utils.GMRFS();
 lcphd_states(1).N0 = 0;
 lcphd_states(1).N1 = 0;
@@ -460,7 +483,7 @@ for s = 1:length(seeds)
         truth.vis_tgts{k}(2, :) = e_obs_true;
 
         % Generate measurement
-        measurement = RFS.CPHD.cphd_measurement();
+        measurement = RFS.LCPHD.cphd_measurement();
         measurement.Z = obs{k}';
         measurement.H = H;
         measurement.R = R;
@@ -486,7 +509,7 @@ for s = 1:length(seeds)
         end
 
         if lcphd
-            [lcphd_states(k), lcphd_Xhat{k}, lcphd_lambda_hat(k)] = RFS.CPHD.lcphd_filter(lcphd_states(k-1), measurement, lcphd_model, lcphd_params);
+            [lcphd_states(k), lcphd_Xhat{k}, lcphd_lambda_hat(k)] = RFS.LCPHD.lcphd_filter(lcphd_states(k-1), measurement, lcphd_model, lcphd_params);
             lcphd_ospa(k) = ospa_dist(lcphd_Xhat{k}, truth.vis_tgts{k}, ospa_c, ospa_p);
         end
 
@@ -632,7 +655,7 @@ if lcphd
         lcphd_states(k).v, ...
         lcphd_Xhat, ...
         lcphd_ospa);    % l-CPHD specific plots
-    lcphd_h = RFS.CPHD.lcphd_plots(lcphd_figures, 'l-CPHD', k, targets, truth, lcphd_Xhat, lcphd_lambda_hat);
+    lcphd_h = RFS.LCPHD.lcphd_plots(lcphd_figures, 'l-CPHD', k, targets, truth, lcphd_Xhat, lcphd_lambda_hat);
 end
 
 if lpdcphd
@@ -649,7 +672,7 @@ if lpdcphd
         lpdcphd_Xhat, ...
         lpdcphd_ospa);
 
-    lpdcphd_h1 = RFS.CPHD.lcphd_plots(lpdcphd_figures, 'l-pd-CPHD', k, targets, truth, lpdcphd_Xhat, [lpdcphd_states.lambda]);
+    lpdcphd_h1 = RFS.LCPHD.lcphd_plots(lpdcphd_figures, 'l-pd-CPHD', k, targets, truth, lpdcphd_Xhat, [lpdcphd_states.lambda]);
     lpdcphd_h2 = RFS.LPDCPHD.lpdcphd_plots(lpdcphd_figures, 'l-pd-CPHD', k, targets, truth, lpdcphd_Xhat, lpdcphd_states);
 end
 

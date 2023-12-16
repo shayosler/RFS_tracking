@@ -260,7 +260,7 @@ N0_k = N0_kk1 * ((1 - pd0) * psi_rho_weights + sum_Nk);
 v_k = RFS.utils.prune_gmrfs(v_k_unpruned, T, U, Jmax); 
  
 %% Outputs
-state_k = RFS.CPHD.cphd_state();
+state_k = RFS.LCPHD.cphd_state();
 state_k.N0 = N0_k;
 state_k.N1 = sum(v_k.w);
 state_k.v = v_k;
