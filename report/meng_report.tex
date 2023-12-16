@@ -572,7 +572,7 @@ Numerical studies were done to assess the performance of the filters at tracking
 \end{align}
 
 
-The simulated sensor was a (very) rough approximation of a forward looking sonar. The ``sonar'' had a range of 40m, and a field of view of 90 degrees.
+The simulated sensor was a (very) rough approximation of a forward looking sonar with a range of 40m, and a field of view of 90 degrees.
 
 The targets were each ``born'' at a random time step during the first 20\% of the simulation duration. Each target was initialized at randomly chosen location within the center 45 degrees of the sonar field of view, at a range between 10m and 20m. The targets were initialized with a random direction of travel with an initial velocity of .25m/s.
 
@@ -587,18 +587,40 @@ At each time step a measurement was generated for each target that was within th
 \end{equation}
 
 Additionally, some number of clutter returns with locations sampled from a uniform distribution over the field of view were returned. The number of clutter returns on any given time step was a random number sampled from a Poisson distribution with parameter $\lambda = 10$, so on average each measurement would have an equal number of clutter and target returns.
-\subsection*{Comparing Systems}
-The first set of tests compared the performance of ``optimal'' filters on systems with varying characteristics. The filters are ``optimal'' in that they are configured with exact system parameters.
 
-\subsection*{Comparing Parameters}
+\subsection*{Comparing Systems}
+For all of the tests all filters were configured as follows unless noted otherwise. Where possible filter parameters were chosen to match the analogous true system system parameter. The clutter likelihood $\kappa$ was set to be uniform across the field of view, $\kappa = 1/A_{FOV}$ where $A_{FOV} = \pi * 40^2/4$ is the area of the field of view. The birth model was a single Gaussian covering the expected birth area with
+\begin{equation}
+  \label{eq:target_birth_model}
+  \mu =
+  \begin{bmatrix}
+    20 \\
+    0
+  \end{bmatrix},\;\;
+  \Sigma =
+  \begin{bmatrix}
+    40 & 0 \\
+    0 & 80
+  \end{bmatrix}
+\end{equation}
+
+
+For pruning and merging the target intensity the minimum weight was $T = 1e-5$, the merging distance was set to $U = 4$, and the maximum number of components to keep was set to $J_{max} = 100$. 
+
+
+The first test compared the performance of ``optimal'' filters on systems with varying characteristics. The filters were ``optimal'' in that where possible they were configured with exact system parameters.
+
 \begin{tabular}{ c c c c c c c }
    & RMS $N_{err}$ & Mean $N_{err}$ & Std $N_{err}$ & Mean OSPA & Mean OSPA Loc. & Mean OSPA Card.\\
-  $GMPHD$ & 5.29 & -2.1 & 5.09 & 4.8 & 1.31 & 4.4 \\
-  $\lambda-CPHD$ & 4.42 & 1 & 4.52 & 4.32 & 1.55 & 3.68 \\
-  $\lambda-p_D-CPHD$ & 6.61 & 5.45 & 3.91 & 6.62 & 1.16 & 6.36 \\
-  $LMB$ & 5.26 & 4.55 & 2.77 & 6.12 & 1.57 & 5.45 \\
-  $Adaptive LMB$ & 6.09 & 5.64 & 2.42 & 7.1 & 1.46 & 6.55 \\
+  $GMPHD$ & 1.63 & -0.163 & 1.63 & 3.16 & 0.871 & 2.39 \\
+  $\lambda-CPHD$ & 1.66 & -0.597 & 1.55 & 2.78 & 1.21 & 1.67 \\
+  $\lambda-p_D-CPHD$ & 2.04 & 1.08 & 1.74 & 3.35 & 0.976 & 2.47 \\
+  $LMB$ & 1.08 & -0.0168 & 1.08 & 2.47 & 1.47 & 1.1 \\
+  $Adaptive LMB$ & 2.3 & 1.23 & 1.95 & 3.32 & 1.26 & 2.15 \\
 \end{tabular}
+
+\subsection*{Comparing Parameters}
+
 \subsubsection*{Target Detection Probability ($p_D^{(1)}$)}
 \subsubsection*{Target Survival Probability ($p_S^{(1)}$)}
 \subsubsection*{Target Birth Model ($\Gamma^{(1)}$)}

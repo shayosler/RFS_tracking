@@ -638,9 +638,13 @@ if exist('run_complete', 'var') == 0
     close all
     data_dir = "./data/";
     to_load = "20231216T6958.0626_gmphd_lcphd_lpdcphd_lmb_almb.mat";
-    load_path = data_dir + to_load;
+
+    report_dir = "./report_data/";
+    opt_data = report_dir + "20231216T122327.9915_gmphd_lcphd_lpdcphd_lmb_almb.mat";
+    %load_path = data_dir + to_load;
+    load_path = opt_data;
     fprintf('Loading data from %s\n', load_path)
-    load(data_dir + to_load);
+    load(load_path);
     clear 'run_complete'
     dbstop 'error'
 end
@@ -748,12 +752,14 @@ for r = runs_to_plot
 end
 
 %% Runtime stats
-total_steps = n_runs * sim_steps;
-fprintf("GMPHD: Total time = %0.2f, mean time = %0.2f\n", t_gmphd, t_gmphd / total_steps);
-fprintf("l-CPHD: Total time = %0.2f, mean time = %0.2f\n", t_lcphd, t_lcphd / total_steps);
-fprintf("l-pd-CPHD: Total time = %0.2f, mean time = %0.2f\n", t_lpdcphd, t_lpdcphd / total_steps);
-fprintf("LMB: Total time = %0.2f, mean time = %0.2f\n", t_lmb, t_lmb/ total_steps);
-fprintf("ALMB: Total time = %0.2f, mean time = %0.2f\n", t_almb, t_almb / total_steps);
+if exist('t_gmphd', 'var') == 1
+    total_steps = n_runs * sim_steps;
+    fprintf("GMPHD: Total time = %0.2f, mean time = %0.2f\n", t_gmphd, t_gmphd / total_steps);
+    fprintf("l-CPHD: Total time = %0.2f, mean time = %0.2f\n", t_lcphd, t_lcphd / total_steps);
+    fprintf("l-pd-CPHD: Total time = %0.2f, mean time = %0.2f\n", t_lpdcphd, t_lpdcphd / total_steps);
+    fprintf("LMB: Total time = %0.2f, mean time = %0.2f\n", t_lmb, t_lmb/ total_steps);
+    fprintf("ALMB: Total time = %0.2f, mean time = %0.2f\n", t_almb, t_almb / total_steps);
+end
 
 %% Other plots
 delete([h_birth h_birth_fov]);
