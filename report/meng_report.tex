@@ -132,13 +132,22 @@ Random finite sets present a compelling framework with which to attempt to solve
   \end{center}
   \caption{\label{tab:variables}List of symbols}
 \end{table}
-
+\pagebreak
 \section{Introduction}
 
-\section{Algorithms}
-GMPHD filter\cite{gmphd}
+Multi-target tracking is the simultaneous estimation of the number of object being observed, as well as the states of those objects. Currently the two most widely used methodologies for solving multi-object tracking problems are joint probabilistic data association \cite{jpda} and multiple hypothesis tracking. A more recent addition to the field of multi-object tracking are filters based on random finite sets (RFS). A random finite set is a random variable, consisting of a set of random elements, whose cardinality is also a random, but finite value. That is an RFS
+\begin{equation}
+  X = {x_1, x_2, ... x_N}
+\end{equation}
+is a set of $N$ random variables $x_i$, where $N$, is also random. The analog of the probability density function for a single random variable for a random finite set is called the ``intensity''. The random cardinality of RFS makes them a natural representation of the state of a multi-object tracking problem given the generally unknown number of targets whose states must be estimated.
 
-For this project I implemented ??? RFS based filtering algorithms. The first two filters I implemented were variants of the Cardinalized Probability Hypothesis Density (CPHD) filter. CPHD filters are similar to PHD filters, but whereas the PHD filter only propagates the posterior intensity distribution of the RFS representing the set of tracked targets, the CPHD filter jointly propagates both the posterior intensity distribution and the posterior cardinality distribution.
+Two random finite set based filters, the $\lambda$ cardinality probability hypothesis density (\lcphd) filter\cite{cphd}, and the $\lambda$-$p_D$ cardinality probability hypothesis density (\lpdcphd) filter\cite{cphd} were implemented. These filters were compared against a Gaussian mixture probability hypothesis density (GMPHD)\cite{gmphd} filter, as well as a labeled multi-Bernoulli filter\cite{lmb}, and a labeled multi-Bernoulli filter which was modified to allow it to function as an adaptive filter utilizing some estimated parameter values.\\
+\\
+The GMPHD is a type of probability hypothesis density filter, and is one of the simplest RFS based filters. It represent the target RFS intensity as a Gaussian mixture. Like PHD filters, the cardinalized probability hypothesis density filters also represent that target RFS as a Gaussian mixture, but whereas the PHD filter only propagates the posterior intensity distribution of the RFS representing the set of tracked targets, the CPHD filter jointly propagates both the posterior intensity distribution and the posterior cardinality distribution. This tends to make the CPHD family of filters have better cardinality estimates the PHD filters. Neither the PHD nor CPHD families of filters provide labels for their target estimates, which means they do not attempt to associate target estimates from one time with estimates at any other times. The labeled multi-Bernoulli filters on the other hand represent their target RFS intensity as a multi-Bernoulli mixture, and as the name suggests, are labeled filters so they do provide labels on target estimates that can be used to associated the estimates through time. The labeling and the formulation of the labeled multi-Bernoulli filters means they should theoretically be able to estimate the target RFS cardinality with no bias.
+
+\section{Algorithms}
+
+The algorithms for the filters that were implemented for this project are presented below.
 
 \subsection{CPHD With Unknown Clutter Rate}
 The CPHD filter with unknown clutter rate ($\lambda$-CPHD) proposed in \cite{cphd} attempts to simultaneously estimate the states of tracked targets and the rate of clutter detections (i.e. the expected number of lutter detections at a given time). To do this it models clutter as the returns from a set of ``clutter generator'' objects which could be located at any arbitrary location, and then jointly estimates the positions of the target objects, the cardinality of the target RFS, and the cardinality of the clutter generator RFS. \\
