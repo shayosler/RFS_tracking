@@ -640,13 +640,13 @@ if exist('run_complete', 'var') == 0
 
     report_dir = "./report_data/";
     opt_data = report_dir + "20231216T122327.9915_gmphd_lcphd_lpdcphd_lmb_almb.mat";
-    low_pd_data = report_dir + "20231216T135322.373_gmphd_lcphd_lpdcphd_lmb_almb.mat";
+    low_pd_data = report_dir + "20231216T205525.1072_gmphd_lcphd_lpdcphd_lmb_almb.mat";
     bad_birth_data = report_dir + "20231216T14470.23496_gmphd_lcphd_lpdcphd_lmb_almb.mat";
     high_ps_data = report_dir + "20231216T153647.3062_gmphd_lcphd_lpdcphd_lmb_almb.mat";
     low_clutter_data = report_dir + "20231216T165828.8285_gmphd_lcphd_lpdcphd_lmb_almb.mat";
 
     %load_path = data_dir + to_load;
-    load_path = low_clutter_data;
+    load_path = low_pd_data;
     fprintf('Loading data from %s\n', load_path)
     load(load_path);
     clear 'run_complete'

@@ -33,6 +33,8 @@
 \newcommand{\tgtj}{{(j,1)}}
 \newcommand{\cluti}{{(i,0)}}
 \newcommand{\tgti}{{(i,1)}}
+\newcommand{\lcphd}{$\lambda$-CPHD}
+\newcommand{\lpdcphd}{$\lambda$-$p_D$-CPHD}
 
 % PDF specific setup, links, title, bookmarks
 \hypersetup
@@ -710,24 +712,25 @@ These results generally align with the expected relative performance of the diff
 \end{figure}
 The estimated clutter and target detection probabilities, and clutter rate from the $\lambda$-$p_D$-CPHD filter, which are also used in the adaptive LMB filter all exhibit some degree of bias, but wind up generating at least sane estimates of their respective parameters, if not extremely accurate estimates. The cardinality estimates of the adaptive LMB filter appear to be more sensitive to the errors in these parameters than those of the $\lambda$-$p_D$-CPHD filter do, with the adaptive LMB showing both a larger RMS error and a larger overall cardinality bias with the mean cardinality error. One other source of parameter estimate error is that as implemented, none of the filtering algorithms take the sensor field of view into account. When a target passes out of the field of view the intensity components associated with that target will remain, and since they stop having measurements associated with them because the target is out of the field of view they wind up skewing the parameter estimates. This can be observed easily in the estimated target detection probability. The true cardinality of visible targets starts to decrease at $t \approx 60$ as targets start to reach the edge of the field of view, and a corresponding decrease in the estimated target detection probability can be observed starting at the same time in figure \ref{fig:opt_param_est}(c).
 
-\subsection*{Comparing Parameters}
-
-\subsubsection*{Target Detection Probability ($p_D^{(1)}$)}
+\subsection*{Parameters Effects}
+Further tests were run to compare the effects of parameter choices on filter behavior. All of these filters were configured the same as in the above ``optimal'' filter tests, except as noted.
+\subsubsection*{Target Detection Probability ($p_D^\tgt$)}
+The filters were tested with the target detection probability value passed to the filters $p_d^\tgt$ set to half of the true target detection probability.
 \begin{table}[H]
   \centering
   \begin{tabular}{ c| c | c | c | c | c | c }
     & RMS $N_{err}$ & Mean $N_{err}$ & Std $N_{err}$ & Mean OSPA & Mean OSPA Loc. & Mean OSPA Card.\\
     \hline
-    $GMPHD$ & 6.66 & -5.12 & 4.27 & 5.15 & 0.699 & 4.55 \\
-    $\lambda-CPHD$ & 6.82 & -5.55 & 3.96 & 5.05 & 0.721 & 4.43 \\
-    $\lambda-p_D-CPHD$ & 2.04 & 1.08 & 1.74 & 3.35 & 0.976 & 2.47 \\
-    $LMB$ & 1.08 & -0.0168 & 1.08 & 2.47 & 1.47 & 1.1 \\
-    $Adaptive LMB$ & 2.3 & 1.23 & 1.95 & 3.32 & 1.26 & 2.15 \\
+    $GMPHD$ & 6.92 & -5.34 & 4.41 & 5.14 & 0.735 & 4.51 \\
+    $\lambda-CPHD$ & 7.01 & -5.66 & 4.13 & 5.09 & 0.8 & 4.39 \\
+    $\lambda-p_D-CPHD$ & 2.03 & 1.08 & 1.72 & 3.45 & 1 & 2.55 \\
+    $LMB$ & 4.6 & 4.05 & 2.17 & 7.02 & 2.39 & 4.73 \\
+    $Adaptive LMB$ & 2.59 & 1.84 & 1.83 & 3.88 & 1.41 & 2.56 \\
   \end{tabular}
-  \caption{Performance of filters with $p_D$ set to}
+  \caption{Performance of filters with $p_D$ set to half the nominal value}
   \label{tab:low_pd}
 \end{table}
-
+Changing the target detection 
 \begin{figure}[H]
   \centering
   \begin{subfigure}[t]{0.49\textwidth}
@@ -743,8 +746,16 @@ The estimated clutter and target detection probabilities, and clutter rate from 
   \end{subfigure}
 \caption{Cardinality estimates and OSPA distances for estimators with incorrect $p_D$}
 \end{figure}
+The GMPHD, $\lambda$-CPHD, and LMB filters all exhibit extremely high cardinality errors when run with and incorrect target detection probability. The cardinality estimates from the \lcphd and GMPHD filters both appear to be approximately twice the true cardinality. The cardinality estimate from the LMB filter on the other hand appears to be approximately half the true cardinality. The performance of the two filters that are adaptive in the target detection probability, the adaptive LMB and the \lpdcphd filter remain largely unchanged. Like in the optimal filtering case the \lpdcphd filter appears to outperform the adaptive LMB filter in terms of both cardinality and OSPA.
 
 \subsubsection*{Target Birth Model ($\Gamma^{(1)}$)}
+The filters were run against a birth model consisting of a single gaussian component located along the left edge of the sensor's field of view. The weight of the component was not changed relative to the birth model used for testing the ``optimal'' filters
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=.75\linewidth]{bad_birth/bm.png}
+  \label{fig:birth_model}
+  \caption{Inaccurate birth model}
+\end{figure}
 
 \begin{table}[H]
   \centering
@@ -757,7 +768,7 @@ The estimated clutter and target detection probabilities, and clutter rate from 
     $LMB$ & 5.17 & 4.65 & 2.25 & 6.73 & 1.12 & 5.72 \\
     $Adaptive LMB$ & 6.36 & 5.63 & 2.96 & 7.9 & 1.57 & 6.43 \\
   \end{tabular}
-  \caption{}
+  \caption{Filter performance with an inaccurate birth model}
   \label{tab:}
 \end{table}
 \begin{figure}[H]
@@ -773,10 +784,12 @@ The estimated clutter and target detection probabilities, and clutter rate from 
     \includegraphics[width=1\linewidth]{bad_birth/ospa.png}
     \caption{OSPA distances}
   \end{subfigure}
-\caption{Cardinality estimates and OSPA distances for estimators with incorrect target birth model}
+  \caption{Cardinality estimates and OSPA distances for estimators with incorrect target birth model}
+  \label{fig:bad_bm_performance}
 \end{figure}
-
+The GMPHD, $\lambda$-CPHD, and $\lambda$-$p_D$-CPHD filters all seem to be much more robust to errors in the birth model than the LMB and adaptive LMB filters. While all of the filters show an increased OSPA distance relative to their optimal results, the OSPA distances for for the LMB and adaptive LMB filters more than doubled. This inaccuracy seems to be driven primarily by cardinality error. As shown in figure \ref{fig:bad_bm_performance}(a) both of these filters consistently tracked fewer than half of the targets.
 \subsubsection*{Target Survival Probability ($p_S^{(1)}$)}
+The target survival probability value, $p_S^\tgt$, that was passed to the filters was increased from the ``true'' value of $0.9$ to $0.99$ for the next test.
 \begin{table}[H]
   \centering
 \begin{tabular}{ c| c | c | c | c | c | c }
@@ -788,9 +801,10 @@ The estimated clutter and target detection probabilities, and clutter rate from 
   $LMB$ & 1.64 & -1.14 & 1.18 & 2.51 & 0.998 & 1.61 \\
   $Adaptive LMB$ & 3.3 & -0.64 & 3.24 & 3.59 & 1.37 & 2.32 \\
 \end{tabular}
-  \caption{}
-  \label{tab:}
+  \caption{Filter performance with an inaccurate survival probability}
+  \label{tab:high_ps}
 \end{table}
+The primary effect of running the filters with a target survival probability of $0.99$ seemed to be to add a small bias to most of the cardinality estimates. The exception is the adaptive LMB filter, whose cardinality estimate appears to start to diverge once the visible target population starts to decrease. One possible reason for this is that the estimated target detection probability also appears to be diverging as seen in Figure \ref{fig:high_ps_param_est}(c).
 
 \begin{figure}[H]
   \centering
@@ -807,8 +821,31 @@ The estimated clutter and target detection probabilities, and clutter rate from 
   \end{subfigure}
 \caption{Cardinality estimates and OSPA distances for estimators with incorrect target survival probability}
 \end{figure}
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{0.32\textwidth}
+    \centering
+    \includegraphics[width=1\linewidth]{high_ps/lpdcphd_lambda_hat.png}
+    \caption{Clutter rate}
+  \end{subfigure}%
+  ~ 
+  \begin{subfigure}[t]{0.32\textwidth}
+    \centering
+    \includegraphics[width=1\linewidth]{high_ps/pd0_hat.png}
+    \caption{Clutter detection probability}
+  \end{subfigure}
+  ~ 
+  \begin{subfigure}[t]{0.32\textwidth}
+    \centering
+    \includegraphics[width=1\linewidth]{high_ps/pd1_hat.png}
+    \caption{Target detection probability}
+  \end{subfigure}  
+  \caption{Parameter estimates from $\lambda$-$p_D$-CPHD with incorrect target survival probability}
+  \label{fig:high_ps_param_est}
+\end{figure}
 
 \subsubsection*{Clutter Rate ($\lambda$)}
+Finally, a test was run with the clutter rate for each filter set to half of the actual clutter rate.
 \begin{table}[H]
   \centering
   \begin{tabular}{ c| c | c | c | c | c | c }
@@ -820,8 +857,8 @@ The estimated clutter and target detection probabilities, and clutter rate from 
     $LMB$ & 2.26 & -1.89 & 1.23 & 3.04 & 1.04 & 2.1 \\
   $Adaptive LMB$ & 2.34 & 1.43 & 1.85 & 3.51 & 1.4 & 2.21 \\
 \end{tabular}  
-  \caption{}
-  \label{tab:}
+  \caption{Filter performance with an inaccurate clutter rate}
+  \label{tab:low_clutter}
 \end{table}
 \begin{figure}[H]
   \centering
@@ -838,16 +875,34 @@ The estimated clutter and target detection probabilities, and clutter rate from 
   \end{subfigure}
 \caption{Cardinality estimates and OSPA distances for estimators with incorrect clutter rate}
 \end{figure}
+The \lcphd, \lpdcphd, and adaptive LMB filter all estimate their own clutter rates, and so were unaffected by the incorrect clutter rate. The LMB filter still performed reasonably well, but not as well as the \lpdcphd did. The GMPHD filter appeared to be very susceptible to cardinality errors caused by the incorrect clutter rate and exibited a significant bias in the cardinality of its estimates.
+
+\section*{Conclusions}
+Under optimal conditions the labeled multi-Bernoulli filter clearly outperformed all of the other filters, with the lowest OSPA score and almost 0 cardinality bias; however, it appears to be very sensitive to differences between the model parameters it uses and the true system. This was especially true for the target detection probability and birth model, where inaccuracies in the parameters resulted in significant estimation errors. The \lcphd and GMPHD were similarly extremely susceptible to errors in the target detection probability, which induced significant biases in the cardinality estimates. The \lpdcphd and the adaptive LMB filter were unsurprisingly the most robust to incorrect parameters, as they have the ability to estimate some of the parameters on the fly. However, the adaptive LMB filter did appear to have a strange sensitivity to survival probability that none of the other filters exhibited. The \lpdcphd filter was almost never the best performing filter in any of the tests; however, it appeared to be robust to almost all of the modelling errors that were tested. In a situation that can be well modeled a filter like the LMB will almost certainly outperform the \lpdcphd. However, in real world tracking applications, where the true model parameters are often not well known the more robust \lpdcphd filter seems like a better choice. Additionally, in many  real world applications being able to provide better ``worst case'' performance can be more important than best case performance, and the ``worst case'' performance of the \lpdcphd filter was significantly better than any of the other 4 filters that were tested.\\
+\\
+Another reason that the \lpdcphd filter is an attractive choice is that it offers a good balance of performance and computational complexity. The execution times for each filter were tracked during the testing, and the average time per estimate was calculated for each filter
+
+\begin{table}[H]
+  \centering
+  \begin{tabular}{ c| c }
+    & Mean Est. Time (s) \\
+      \hline
+      $GMPHD$ & 0.03 \\
+    $\lambda-CPHD$ & 0.06 \\
+    $\lambda-p_D-CPHD$ & 0.07 \\
+    $LMB$ & .23 \\
+    $Adaptive LMB$ & .30 \\
+  \end{tabular}
+  \caption{Average estimation time}
+  \label{tab:exec_time}
+\end{table}
+and while none of these implementations were done with a significant emphasis on performance, these numbers give a good ``order of magnitude'' comparison of the computational requirements for each filter.
+
 
 % Bibliography
 \clearpage
 \pagebreak
 \printbibliography
 
-% Appendicies
-\section*{Appendix 1: Matlab Code}
-\subsection*{foo.m}
-\begin{lstlisting}[language=Matlab]
-\end{lstlisting}
 
 \end{document}
