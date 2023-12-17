@@ -127,14 +127,15 @@ format_fig(gcf, -1);
 indent = "  ";
 
 row1 = indent;
-col_align = " c ";
+col_align = " c";
 for c = 1:n_cols
     row1 = row1 + " & " + stats_cols{c};
-    col_align = col_align + "c ";
+    col_align = col_align + "| c ";
 end
 fprintf("\\begin{tabular}{%s}\n", col_align);
 row1 = row1 + "\\";
 fprintf("%s\n", row1);
+fprintf("\\hline\n")
 for r = 1:n_estimates
     row = indent + "$" + labels{r} + "$ ";
     for c = 1:n_cols
