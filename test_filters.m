@@ -762,12 +762,13 @@ if exist('t_gmphd', 'var') == 1
 end
 
 %% Other plots
-delete([h_birth h_birth_fov]);
 figure(birth_fig)
+hold off
 h_birth = RFS.utils.plotgmphd(birth_gmrfs, min_n:.1:max_n, min_e:.1:max_e);
 hold on
 h_birth_fov = sensor.plot_fov(0, 0, 0, 'r');
-title 'Birth Model'
+%title 'Birth Model'
+format_plot(gca);
 
 %% Aggregate plots and data
 RFS.utils.aggregate_plots(sim_steps, truth, gmphd_results, lcphd_results, lpdcphd_results, lmb_results, almb_results);

@@ -11,7 +11,7 @@
 \usepackage{lstautogobble}
 \usepackage[hidelinks]{hyperref}
 \usepackage{float}
-\usepackage{subfig}
+\usepackage{subcaption}
 \usepackage{pdfpages}
 \usepackage[margin=1.0in]{geometry}
 \usepackage[backend=biber,style=ieee]{biblatex}
@@ -22,7 +22,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \usetikzlibrary{positioning}
 \setlength{\parindent}{0em}
-\graphicspath{ {./} }
+\graphicspath{ {./images} }
 
 \newcommand{\course}{MEng Project}
 \newcommand{\assignment}{\course{} Report}
@@ -550,7 +550,7 @@ The target position estimates, $\hat{X}_k$, can be found as for the $\lambda$-CP
 An adaptive labeled multi-Bernoulli (LMB) filter was implemented by combining a (slightly) modified Labeled Multi Bernoulli\cite{lmb} filter with the $\lambda$-$p_D$-CPHD filter described above, using the same architecture that \cite{adaptive_dglmb} used to make an adaptive $\delta$-generalized labeled multi Bernoulli filter. An adaptive labeled multi-Bernoulli filter was chosen over an adaptive $\delta$-generalized labeled multi Bernoulli filter because \cite{lmb} showed that the LMB filter offers performance that is almost as good as the $\delta$-generalized labeled multi Bernoulli filter, but with a significantly lower computational cost.
 
 \section*{Results}
-Numerical studies were done to assess the performance of the filters at tracking objects under varying conditions (e.g.\ clutter rate, detection probability) and with varying parameters. The system simulation and filters were run in Matlab. Performance was assessed primarily with the optimal subpattern assignment (OSPA)\cite{OSPA} metric. 10 moving targets were simulated moving through the field of view of a simulated sensor. The targets were simulated with a linear constant velocity model with additive Gaussian noise. The simulation time step was set to $1$ for simplicity.
+Numerical studies were done to assess the performance of the filters at tracking objects under varying conditions (e.g.\ clutter rate, detection probability) and with varying parameters. The system simulation and filters were run in Matlab. 10 moving targets were simulated moving through the field of view of a simulated sensor. The targets were simulated with a linear constant velocity model with additive Gaussian noise. The simulation time step was set to $1$ for simplicity.
 
 \begin{align}
   x_{k+1} &= Fx_k + \mathcal{N}(0, Q)\\
@@ -571,11 +571,10 @@ Numerical studies were done to assess the performance of the filters at tracking
   \end{bmatrix}\\           
 \end{align}
 
-
-The simulated sensor was a (very) rough approximation of a forward looking sonar with a range of 40m, and a field of view of 90 degrees.
-
-The targets were each ``born'' at a random time step during the first 20\% of the simulation duration. Each target was initialized at randomly chosen location within the center 45 degrees of the sonar field of view, at a range between 10m and 20m. The targets were initialized with a random direction of travel with an initial velocity of .25m/s.
-
+The simulated sensor was a (very) rough approximation of a forward looking sonar with a range of 40m, and a field of view of 90 degrees.\\
+\\
+The targets were each ``born'' at a random time step during the first 20\% of the simulation duration. Each target was initialized at randomly chosen location within the center 45 degrees of the sonar field of view, at a range between 10m and 20m. The targets were initialized with a random direction of travel with an initial velocity of .25m/s.\\
+\\
 At each time step a measurement was generated for each target that was within the field of view with probability $p_D = 0.9$. The measurements consisted of the target position corrupted by 0 mean Gaussian noise with covariance
 \begin{equation}
   \label{eq:R_true}
@@ -586,10 +585,16 @@ At each time step a measurement was generated for each target that was within th
   \end{bmatrix}
 \end{equation}
 
-Additionally, some number of clutter returns with locations sampled from a uniform distribution over the field of view were returned. The number of clutter returns on any given time step was a random number sampled from a Poisson distribution with parameter $\lambda = 10$, so on average each measurement would have an equal number of clutter and target returns.
+Additionally, some number of clutter returns with locations sampled from a uniform distribution over the field of view were returned. The number of clutter returns on any given time step was a random number sampled from a Poisson distribution with parameter $\lambda = 10$, so on average each measurement would have an equal number of clutter and target returns. 10 simulation runs of 100 time steps each was run for each simulator.\\
 
-\subsection*{Comparing Systems}
-For all of the tests all filters were configured as follows unless noted otherwise. Where possible filter parameters were chosen to match the analogous true system system parameter. The clutter likelihood $\kappa$ was set to be uniform across the field of view, $\kappa = 1/A_{FOV}$ where $A_{FOV} = \pi * 40^2/4$ is the area of the field of view. The birth model was a single Gaussian covering the expected birth area with
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=.75\linewidth]{track_obs.png}
+  \label{fig:track_obs}
+  \caption{Target Tracks (red) and measurements (cyan) from 100 time steps}
+\end{figure}
+
+For all of the tests all filters were configured as follows unless noted otherwise. Parameters were chosen to match the analogous true system system parameter. The clutter likelihood $\kappa$ was set to be uniform across the field of view, $\kappa = 1/A_{FOV}$ where $A_{FOV} = \pi * 40^2/4$ is the area of the field of view. The target birth model intensity was a single Gaussian component covering the expected birth area with
 \begin{equation}
   \label{eq:target_birth_model}
   \mu =
@@ -604,20 +609,104 @@ For all of the tests all filters were configured as follows unless noted otherwi
   \end{bmatrix}
 \end{equation}
 
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=.75\linewidth]{bm2.png}
+  \label{fig:birth_model}
+  \caption{Birth model}
+\end{figure}
+and a weight of $N_\Gamma^\tgt = .01$. The target and clutter survival probabilities were set to $p_S^\clut = p_S^\tgt = .9$ For pruning and merging the target intensity the minimum weight was $T = 1e-5$, the merging distance was set to $U = 4$, and the maximum number of components to keep was set to $J_{max} = 100$. The initial cardinality distribution was set to a uniform distribution on the range $[0, 100]$. For the $\lambda$-CPHD filter the clutter birth model $N_\Gamma^\clut$ was set to $5$, and the clutter detection probability $p_D^\clut$ was set to $0.2$. For the $\lambda$-$p_D$-CPHD filter the clutter birth model intensity was a single beta distribution component with $s=1$, $t=1$ and weight $N_\Gamma^\clut = 5$. The beta distribution dilation factor $k_\beta$ was set to $1.5$. For pruning and merging the clutter intensity the the minimum weight was $T = 1e-5$, the merging distance was set to $U = .03$, and the maximum number of components to keep was set to $J_{max} = 100$. For the LMB and adaptive LMB filters the maximum number of tracks was set to 100, the number of update components was set to 1000, and the maxium number of components per track was set to 10. \\
 
-For pruning and merging the target intensity the minimum weight was $T = 1e-5$, the merging distance was set to $U = 4$, and the maximum number of components to keep was set to $J_{max} = 100$. 
+Performance was assessed primarily with the optimal subpattern assignment (OSPA)\cite{OSPA} distance. The OSPA distance is a metric designed to measure the performance of a multi-object tracking algorithm. The OSPA distance seeks to meaningfully capture both cardinality and tracking errors, and the overall OSPA distance as well as the location and cardinality components are reported for each test. The OSPA metrics were calculated with the order set to $1$ and  a cutoff distance of $10$.
 
+\subsubsection*{Optimal Performance}
+The first test compared the performance of ``optimal'' filters, configured as described above with as many parameter as possible exactly matching the simulated system.
+\begin{figure}[h]
+  \centering
+  \begin{subfigure}[t]{0.32\textwidth}
+    \centering
+    \includegraphics[width=1\linewidth]{gmphd_tracks.png}
+    %\caption{Lorem ipsum}
+  \end{subfigure}%
+  ~ 
+  \begin{subfigure}[t]{0.32\textwidth}
+    \centering
+    \includegraphics[width=1\linewidth]{lcphd_tracks.png}
+    %\caption{Lorem ipsum}
+  \end{subfigure}
+  ~
+  \begin{subfigure}[t]{0.32\textwidth}
+    \centering
+    \includegraphics[width=1\linewidth]{lpdcphd_tracks.png}
+    %\caption{Lorem ipsum}
+  \end{subfigure}%
+\\ \medskip
+    \begin{subfigure}[t]{0.32\textwidth}
+    \centering
+    \includegraphics[width=1\linewidth]{lmb_tracks.png}
+    %\caption{Lorem ipsum}
+  \end{subfigure}%
+  ~ 
+  \begin{subfigure}[t]{0.32\textwidth}
+    \centering
+    \includegraphics[width=1\linewidth]{almb_tracks.png}
+    %\caption{Lorem ipsum}
+  \end{subfigure}
+  \caption{Example actual target tracks (red), measurements (grey), and target position estimates (green) from one simulation run with optimal parameters.}
+\end{figure}
 
-The first test compared the performance of ``optimal'' filters on systems with varying characteristics. The filters were ``optimal'' in that where possible they were configured with exact system parameters.
+\begin{table}[H]
+  \centering
+  \begin{tabular}{ c | c| c| c| c| c| c }
+    & RMS $N_{err}$ & Mean $N_{err}$ & Std $N_{err}$ & Mean OSPA & Mean OSPA Loc. & Mean OSPA Card.\\
+    \hline
+    $GMPHD$ & 1.63 & -0.163 & 1.63 & 3.16 & 0.871 & 2.39 \\ 
+    $\lambda-CPHD$ & 1.66 & -0.597 & 1.55 & 2.78 & 1.21 & 1.67 \\ 
+    $\lambda-p_D-CPHD$ & 2.04 & 1.08 & 1.74 & 3.35 & 0.976 & 2.47 \\ 
+    $LMB$ & 1.08 & -0.0168 & 1.08 & 2.47 & 1.47 & 1.1 \\ 
+    $Adaptive LMB$ & 2.3 & 1.23 & 1.95 & 3.32 & 1.26 & 2.15 \\ 
+  \end{tabular}
+  \caption{Performance of optimal filters}
+  \label{tab:optimal}
+\end{table}
+These results generally align with the expected relative performance of the different filters. The 
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{0.49\textwidth}
+    \centering
+    \includegraphics[width=1\linewidth]{optimal/cardinality.png}
+    \caption{Cardinality estimates}
+  \end{subfigure}%
+  ~ 
+  \begin{subfigure}[t]{0.49\textwidth}
+    \centering
+    \includegraphics[width=1\linewidth]{optimal/ospa.png}
+    \caption{OSPA distances}
+  \end{subfigure}
+\caption{Cardinality estimates and OSPA distances for optimal estimators}
+\end{figure}
 
-\begin{tabular}{ c c c c c c c }
-   & RMS $N_{err}$ & Mean $N_{err}$ & Std $N_{err}$ & Mean OSPA & Mean OSPA Loc. & Mean OSPA Card.\\
-  $GMPHD$ & 1.63 & -0.163 & 1.63 & 3.16 & 0.871 & 2.39 \\
-  $\lambda-CPHD$ & 1.66 & -0.597 & 1.55 & 2.78 & 1.21 & 1.67 \\
-  $\lambda-p_D-CPHD$ & 2.04 & 1.08 & 1.74 & 3.35 & 0.976 & 2.47 \\
-  $LMB$ & 1.08 & -0.0168 & 1.08 & 2.47 & 1.47 & 1.1 \\
-  $Adaptive LMB$ & 2.3 & 1.23 & 1.95 & 3.32 & 1.26 & 2.15 \\
-\end{tabular}
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{0.32\textwidth}
+    \centering
+    \includegraphics[width=1\linewidth]{optimal/lpdcphd_lambda_hat.png}
+    \caption{Clutter rate}
+  \end{subfigure}%
+  ~ 
+  \begin{subfigure}[t]{0.32\textwidth}
+    \centering
+    \includegraphics[width=1\linewidth]{optimal/pd0_hat.png}
+    \caption{Clutter detection probability}
+  \end{subfigure}
+  ~ 
+  \begin{subfigure}[t]{0.32\textwidth}
+    \centering
+    \includegraphics[width=1\linewidth]{optimal/pd1_hat.png}
+    \caption{Target detection probability}
+  \end{subfigure}  
+\caption{Parameter estimates from $\lambda$-$p_D$-CPHD}
+\end{figure}
 
 \subsection*{Comparing Parameters}
 
