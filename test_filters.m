@@ -101,9 +101,9 @@ model_Q = 5 * eye(n_states);
 
 % Detection/survival probabilities
 model_pd0 = true_pd0;
-model_pd1 = true_pd1;
+model_pd1 = .5 *true_pd1;
 model_ps0 = true_ps0;
-model_ps1 = true_ps1;
+model_ps1 = true_ps1;% + (1 - true_ps1) * .9;
 model_lambda = sensor.lambda;
 
 % Target birth model
@@ -118,7 +118,7 @@ left_edge_bm_cv = RFS.utils.GMRFS([16.25; 0; -16.25; 0], [18.5 0 -16.5 0; 0 1 0 
 center_bm_cv = RFS.utils.GMRFS([23; 0; 0; 0], [15 0 0 0; 0 1 0 0; 0 0 15 0; 0 0 0 1], 1);
 
 birth_rate = 0.01; % Expected rate of new births
-birth_gmrfs = birth_rate .* left_edge_bm; %center_bm; % uniform_bm;
+birth_gmrfs = birth_rate .* center_bm; % uniform_bm;
 birth_fig = figure;
 h_birth = RFS.utils.plotgmphd(birth_gmrfs, min_n:.1:max_n, min_e:.1:max_e);
 hold on
@@ -343,13 +343,12 @@ lmb_model.P_S= model_ps1;
 lmb_model.Q_S= 1-lmb_model.P_S;
 
 % birth parameters (LMB birth model, single component only)
+lmb_birth_rate = .75;
 % "good" birth model
-%lmb_birth_rate = .75;
-%lmb_birth_gmrfs = lmb_birth_rate .* center_bm;
+lmb_birth_gmrfs = lmb_birth_rate .* center_bm;
 
 % "bad" birth model
-lmb_birth_rate = .75;
-lmb_birth_gmrfs = lmb_birth_rate .* left_edge_bm;
+%lmb_birth_gmrfs = lmb_birth_rate .* left_edge_bm;
 
 lmb_birth_fig = figure;
 %h_lmb_birth = RFS.utils.plotgmphd(lmb_birth_gmrfs, min_n:.1:max_n, min_e:.1:max_e);
