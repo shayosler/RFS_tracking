@@ -370,7 +370,7 @@ lmb_model.H= H;    %observation matrix
 lmb_model.R= R;              %observation noise covariance
 
 % detection parameters
-lmb_model.P_D= .98;   %probability of detection in measurements
+lmb_model.P_D= model_pd1;   %probability of detection in measurements
 lmb_model.Q_D= 1-lmb_model.P_D; %probability of missed detection in measurements
 
 % clutter parameters
