@@ -640,8 +640,13 @@ if exist('run_complete', 'var') == 0
 
     report_dir = "./report_data/";
     opt_data = report_dir + "20231216T122327.9915_gmphd_lcphd_lpdcphd_lmb_almb.mat";
+    low_pd_data = report_dir + "20231216T135322.373_gmphd_lcphd_lpdcphd_lmb_almb.mat";
+    bad_birth_data = report_dir + "20231216T14470.23496_gmphd_lcphd_lpdcphd_lmb_almb.mat";
+    high_ps_data = report_dir + "20231216T153647.3062_gmphd_lcphd_lpdcphd_lmb_almb.mat";
+    low_clutter_data = report_dir + "20231216T165828.8285_gmphd_lcphd_lpdcphd_lmb_almb.mat";
+
     %load_path = data_dir + to_load;
-    load_path = opt_data;
+    load_path = low_clutter_data;
     fprintf('Loading data from %s\n', load_path)
     load(load_path);
     clear 'run_complete'
@@ -761,12 +766,13 @@ if exist('t_gmphd', 'var') == 1
 end
 
 %% Other plots
-delete([h_birth h_birth_fov]);
 figure(birth_fig)
+hold off
 h_birth = RFS.utils.plotgmphd(birth_gmrfs, min_n:.1:max_n, min_e:.1:max_e);
 hold on
 h_birth_fov = sensor.plot_fov(0, 0, 0, 'r');
-title 'Birth Model'
+%title 'Birth Model'
+format_fig(gcf, -1);
 
 %% Aggregate plots and data
 RFS.utils.aggregate_plots(sim_steps, truth, gmphd_results, lcphd_results, lpdcphd_results, lmb_results, almb_results);

@@ -24,7 +24,7 @@ end
 figure(figures.map_fig);
 for n = 1:length(targets)
     traj = targets(n).get_trajectory();
-    h = plot(traj(3, :), traj(1, :), 'b');
+    h = plot(traj(3, :), traj(1, :), 'r', 'LineWidth', 2);
     hold on
     handles = [handles h];
 end
@@ -35,16 +35,17 @@ h_obs = [];
 h_trackers = [];
 n_trackers = zeros(k, 1);
 n_true = zeros(k, 1);
+gray =  [.5 .5 .5];
 for n = 1:k
     n_trackers(n) = size(Xhat{n}, 2);
     n_true(n) = size(z_true{n}, 2);
     z_n = z{n};
     if ~isempty(z_n)
-        h_obs = [h_obs plot(z_n(:, 2), z_n(:, 1), '.')];
+        h_obs = [h_obs plot(z_n(:, 2), z_n(:, 1), '.', 'color', gray)];
         hold on
     end
     if ~isempty(Xhat{n})
-        h_trackers = [h_trackers plot(Xhat{n}(2, :), Xhat{n}(1,:), 'go')];
+        h_trackers = [h_trackers plot(Xhat{n}(2, :), Xhat{n}(1,:), 'go', 'LineWidth', 2)];
         hold on
     end
 end
@@ -56,8 +57,8 @@ hold on
 handles = [handles h_map];
 
 % Plot final observations
-h_obs = [h_obs plot(z{k}(:, 2), z{k}(:, 1), 'bo')];
-handles = [handles h_obs h_trackers];
+%h_obs = [h_obs plot(z{k}(:, 2), z{k}(:, 1), 'bo')];
+%handles = [handles h_obs h_trackers];
 
 % Plot final position estimates
 %trackers = Xhat{k};
@@ -73,7 +74,7 @@ psi = x(3);
 h_fov = sensor.plot_fov(n, e, psi, 'b');
 handles = [handles h_fov];
 
-title([prefix ' Map and Observations After t = ' num2str(k)])
+title([prefix ' Estimates and Observations'])
 %legend('Targets', 'Measurements', 'Tracked Objects')
 set(gca, 'Fontsize', 18)
 axis equal;

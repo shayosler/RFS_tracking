@@ -16,6 +16,7 @@ hold on
 
 n_err_fig = figure;
 o_fig = figure;
+o_fig2 = figure;
 
 % Extract data to a format we can do math on it
 estimates = {gmphd, lcphd, lpdcphd, lmb, almb};
@@ -63,6 +64,11 @@ for k = 1:length(estimates)
     hold on
     h = [h h_ospa h_ospa_l h_ospa_n];
 
+    figure(o_fig2);
+    h_ospa2 = plot(mean(ospa{k}, 2), styles{k}, width{:});
+    hold on
+    h = [h h_ospa2];
+
     rms_n_err = rms(N_err{k}, "all");
     mean_n_err = mean(mean(N_err{k}));
     std_n_err = std(N_err{k}, 0, 'all');
@@ -85,43 +91,51 @@ figure(n_fig);
 legend([{'Truth'} labels]);
 title('Cardinality');
 xlabel('Time');
+format_fig(gcf, -1);
 
 % Cardinality error
 figure(n_err_fig);
 legend(labels);
 title('Cardinality Error');
 xlabel('Time');
+format_fig(gcf, -1);
 
 % Ospa
 figure(o_fig);
 subplot(3, 1, 1)
 legend(labels);
 title('OSPA Metrics')
-xlabel 'Time step'
+xlabel 'Time'
 ylabel 'OSPA Distance'
-set(gca, 'Fontsize', 18)
 subplot(3, 1, 2)
-xlabel 'Time step'
+xlabel 'Time'
 ylabel 'OSPA Loc.'
-set(gca, 'Fontsize', 18)
 subplot(3, 1, 3)
-xlabel 'Time step'
+xlabel 'Time'
 ylabel 'OSPA Card.'
-set(gca, 'Fontsize', 18)
+format_fig(gcf, -1);
+
+figure(o_fig2);
+legend(labels);
+title('OSPA Distance')
+xlabel 'Time'
+ylabel 'Distance'
+format_fig(gcf, -1);
 
 % Print stats table
 % first row, black col then stats labels
 indent = "  ";
 
 row1 = indent;
-col_align = " c ";
+col_align = " c";
 for c = 1:n_cols
     row1 = row1 + " & " + stats_cols{c};
-    col_align = col_align + "c ";
+    col_align = col_align + "| c ";
 end
 fprintf("\\begin{tabular}{%s}\n", col_align);
 row1 = row1 + "\\";
 fprintf("%s\n", row1);
+fprintf("\\hline\n")
 for r = 1:n_estimates
     row = indent + "$" + labels{r} + "$ ";
     for c = 1:n_cols
@@ -141,7 +155,7 @@ title(lcphd.label + " \lambda Estimate")
 xlabel 'Time'
 ylabel '\lambda'
 legend('Estimate', 'Truth')
-set(gca, 'Fontsize', 18)
+format_fig(gcf, -1);
 h = [h h_lambda_hat h_lambda_true];
 
 % Lambda estimate from lpdcphd
@@ -153,7 +167,7 @@ title(lpdcphd.label + " \lambda Estimate")
 xlabel 'Time'
 ylabel '\lambda'
 legend('Estimate', 'Truth')
-set(gca, 'Fontsize', 18)
+format_fig(gcf, -1);
 h = [h h_lambda_hat h_lambda_true];
 
 % Lambda and pD estimates from lpdcphd
@@ -166,7 +180,7 @@ title('p_D^{(0)} Estimate')
 xlabel 'Time'
 ylabel 'p_D^{(0)}'
 legend('Estimate', 'Truth')
-set(gca, 'Fontsize', 18)
+format_fig(gcf, -1);
 h = [h h_pd0_mean h_pd0_true];
 
 figure
@@ -177,7 +191,7 @@ title(' p_D^{(1)} Estimate')
 xlabel 'Time'
 ylabel 'p_D^{(1)}'
 legend('Estimate', 'Truth')
-set(gca, 'Fontsize', 18)
+format_fig(gcf, -1);
 h = [h h_pd1_mean h_pd1_true];
 
 
