@@ -4,6 +4,7 @@
 % Packages
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage{tikz}
 \usepackage{graphicx}
 \usepackage{fancyhdr} % Customize header and footer
@@ -58,6 +59,10 @@
   commentstyle=\color{green}
 }
 
+% title
+\title{Comparison of Random Finite Set Filters for Multi-Object Tracking}
+\author{\name}
+
 % Header and Footer
 \pagestyle{fancy}
 \lhead{\name}
@@ -68,41 +73,74 @@
 \cfoot{\thepage}
 \rfoot{}
 
+% Disable numbers on sections, but keep them in table of contents
+\setcounter{secnumdepth}{0}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Content
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{document}
+\maketitle
+\pagebreak
 
-\section*{Front Matter}
-- The Gaussian mixture PHD filter and part of the pruning/merging code used in the lpdcphd and cphd were developed as part of the final project for MAE6760. The $\delta$-Generalized Labeled Multi Bernoulli filter implementation was from a reference implementation sourced from https://ba-tuong.vo-au.com/codes.html
 
+\section*{Preface}
+The Gaussian mixture PHD filter and some of the pruning/merging code used in the GMPHD, \lcphd and \lpdcphd were developed as part of the final project for Fall 2022 MAE6760 course. The Labeled Multi Bernoulli (LMB) filter implementation was from a reference implementation sourced from \cite{vo_rfs}.
 
+\section*{Abstract}
+Random finite sets present a compelling framework with which to attempt to solve multi-object tracking problems, providing an alternative to other modern Bayesian multi-object tracking methodologies such as joint probabilistic data association or multi-hypothesis tracking. Implementations of a number of different random finite set based filters are compared under simulated multi-object tracking situations with the goals of better understanding the effects of the major filter tuning parameters, and of identifying filter(s) that might be suitable candidates for future tests and application to real world target tracking problems.
+
+\tableofcontents
+\listoffigures
+\listoftables
+
+\subsection*{List of Symbols}
 \begin{table}[h]
   \begin{center}
-    \begin{tabular}{ c l } 
+    \begin{tabular}{ c l }
+      $\square^\clut$ & A symbol pertaining to clutter\\
+      $\square^\tgt$ & A symbol pertaining to targets\\
+      $\square_k$ & A symbol containing values for time $k$\\
+      $\langle a, b \rangle$ & Inner product of $a$ and $b$ \\
+      $\mathcal{N}(\mu, \Sigma)$ & Gaussian distribution with mean $\mu$ and covariance $\Sigma$\\
+      $\beta(a, b)$ & A beta distribution with parameters $a$ and $b$ \\
+      $B(a, b)$ & Beta function calculated on $a$ and $b$ \\
       $F$ & Linear state transition matrix, $x_{k+1} = Fx_k$ \\
       $Q$ & Process noise covariance \\
+      $H$ & Measurement model \\
+      $R$ & Measurement noise \\
+      $v$ & The intensity of a random finite set \\
+      $J$ & The number of components in an RFS intensity \\
       $p_{D}$ & Probability that an object (clutter or target) is detected\\
       $p_{S}$ & Probability that an object (clutter or target) survives from time $k-1$ to $k$\\
-      $\Gamma_k$ & RFS representing a birth model\\
-      $\gamma^{(1)}$ & Intensity of $\Gamma^{(1)}$, $\gamma^{(1)} = \sum_{i=1}^{J_{\gamma}^{(1)}}w_{\gamma}^i \mathcal{N}(m_{\gamma}^i,\,P_{\gamma}^i)$.\\
-      $N_{\Gamma}^{(0)}$ & Mean number of births \\
-      $w$ & \\
-      $m$ & \\
-      $P$ & \\
+      $\Gamma$ & RFS representing a birth model\\
+      $\gamma$ & Intensity of $\Gamma$ \\
+      $N_{\Gamma}$ & Mean number of births \\
+      $w$ & Component weight \\
+      $m$ & Mean of a Gaussian component \\
+      $P$ & Covariance of a Gaussian component \\
+      $\lambda$ & Clutter rate \\
+      $T$ & Truncation threshold for pruning intensities\\
+      $U$ & Distance threshold for merging components in an intensity \\
+      $J_{max}$& Maximum number of allowed components in an intensity \\
+      $N$ & Cardinality of a random finite set \\
+      $\ddot{\rho}$ & Cardinality distribution for a random finite set \\
+      $Z$ & Set of measurements \\
+      $|Z|$ & Cardinality of Z \\
       %\hline
     \end{tabular}
   \end{center}
   \caption{\label{tab:variables}List of symbols}
 \end{table}
 
+\section{Introduction}
 
-\section*{Algorithms}
+\section{Algorithms}
 GMPHD filter\cite{gmphd}
 
 For this project I implemented ??? RFS based filtering algorithms. The first two filters I implemented were variants of the Cardinalized Probability Hypothesis Density (CPHD) filter. CPHD filters are similar to PHD filters, but whereas the PHD filter only propagates the posterior intensity distribution of the RFS representing the set of tracked targets, the CPHD filter jointly propagates both the posterior intensity distribution and the posterior cardinality distribution.
 
-\subsection*{CPHD With Unknown Clutter Rate}
+\subsection{CPHD With Unknown Clutter Rate}
 The CPHD filter with unknown clutter rate ($\lambda$-CPHD) proposed in \cite{cphd} attempts to simultaneously estimate the states of tracked targets and the rate of clutter detections (i.e. the expected number of lutter detections at a given time). To do this it models clutter as the returns from a set of ``clutter generator'' objects which could be located at any arbitrary location, and then jointly estimates the positions of the target objects, the cardinality of the target RFS, and the cardinality of the clutter generator RFS. \\
 \\
 Where necessary throughout this algorithm, symbols pertaining to the clutter RFS are denoted with a superscript $^{(0)}$, and symbols pertaining to the target RFS are denoted with a superscript $^{(1)}$. Subscripts $_{k-1}$, $_k$, and $_{k+1}$ are used to denote symbols pertaining to the previous, current, or next time step respectively. A subscript $_{k|k-1}$ denotes a prediction of a value at time $k$ given the value at time $k-1$.
@@ -135,7 +173,7 @@ and the cardinality distribution of the total number of births, $\ddot{\rho}_{\G
 \lambda_{\Gamma k} = N_{\Gamma k}^{(0)} + \sum_{i=1}^{J_{\gamma k}^{(1)}}w_{\gamma k}^i 
 \end{equation}
 
-\subsubsection*{Prediction}
+\subsubsection{Prediction}
 If at time $k-1$ the posterior total cardinality distribution is $\ddot{\rho_{k-1}}$, the posterior mean number of clutter generators is $N^{(0)}_{k-1}$, and the posterior target intensity is given by
 
 \begin{equation}
@@ -167,7 +205,7 @@ where $\phi$ represents the proportion of surviving clutter generators and targe
   \label{eq:phi}
   \phi = \frac{p_{Sk}^{(1)}\sum_{i=1}^{J_{k|k-1}}w_{k-1}^{(i)} + P_{Sk}^{(0)}N_{k|k-1}^{(0)}}{\sum_{i=1}^{J_{k|k-1}}w_{k|k-1}^{(i)} + N_{k|k-1}^{(0)}}
 \end{equation}
-\subsubsection*{Update}
+\subsubsection{Update}
 Given a set of measurements $Z_k = \{z_1,\;z_2,\;...\;z_{Jzk}\}$ with linear measurement model
 \begin{align}
   \label{eq:z}
@@ -236,7 +274,7 @@ where
 \end{equation}
 and $\langle a, b \rangle$ denotes the inner product of $a$ and $b$.
 
-\subsubsection*{Pruning and Merging}
+\subsubsection{Pruning and Merging}
 During the prediction step the number of components in the target intensity grows by the number of components in the target birth intensity. Then during the update the number of components increases again by a factor of $|Z_k|$. This can quickly cause the number of components representing the target intensity to grow to a prohibitive size, so after each update step the Gaussian mixture forming $v_{k}$ needs to be pruned yielding a new mixture $\tilde{v}_k$. The pruning process is relatively straightforward. First, calculate the total weight of all components in the mixture
 \begin{equation}
   \label{eq:wtotal}
@@ -267,7 +305,7 @@ where
 
 to ensure that the total weight of the intensity is unchanged.
 
-\subsubsection*{Estimates}
+\subsubsection{Estimates}
 The weight of each component in the target intensity represents the expected number of targets that component represents, so the estimated cardinality of the target set $N_k^{(1)}$ can now be found by summing the weights of all of of the components of the target intensity
 \begin{equation}
   \label{eq:N1k}
@@ -275,7 +313,7 @@ The weight of each component in the target intensity represents the expected num
 \end{equation}
 The estimated target states $\hat{X}_k$ can be extracted by selecting the means of the highest weighted components of $\tilde{v}_k$, replicating each component $round(\tilde{w}_K^j)$ times, until there are $round(N_k^{(1)})$ targets in $\hat{X}_k$. The estimated number of clutter generators is given by $N_k^{(0)}$, and the estimated clutter rate is $\hat{\lambda}_k = p_{Dk}^{(0)}N_k^{(0)}$.
 
-\subsection*{CPHD With Unknown Clutter Rate and Detection Probability}
+\subsection{CPHD With Unknown Clutter Rate and Detection Probability}
 The CPHD with unknown clutter rate and detection probability ($\lambda$-$p_D$-CPHD) as proposed in \cite{cphd}, is similar to the $\lambda$-CPHD filter except that it additionally estimates the detection probabilities for clutter and targets, $p_D^{(0)}$ and $p_D^{(1)}$. The notation used when describing this filter is generally the same as that used for the $\lambda$-CPHD, except where noted. The $\lambda$-$p_D$-CPHD by augments the target and clutter state spaces with an extra state defined on $[0, 1]$ representing the detection probability for that target. The target RFS intensity, $v_k^{(1)}$, is represented as a Beta-Gaussian mixture
 
 \begin{equation}
@@ -318,7 +356,7 @@ and the cardinality distribution of the total number of births, $\ddot{\rho}_{\G
 \lambda_{\Gamma k} = N_{\Gamma k}^{(0)} + \sum_{i=1}^{J_{\gamma k}^{(1)}}w_{\gamma k}^i 
 \end{equation}
 
-\subsubsection*{Prediction}
+\subsubsection{Prediction}
 
 If at time $k-1$ the posterior total cardinality distribution is $\ddot{\rho_{k-1}}$, the posterior clutter generator intensity is \cite{cphd}
 \begin{equation}
@@ -387,7 +425,7 @@ where $\phi$ represents the proportion of surviving clutter generators and targe
   \phi = \frac{p_{Sk}^\tgt\sum_{j=1}^{J_{k-1}^\tgt}w_{k-1}^\tgtj + P_{Sk}^\clut \sum_{j=1}^{J_{k-1}^\clut}w_{k-1}^\clutj}{\sum_{j=1}^{J_{k-1}^\tgt}w_{k-1}^\tgtj + \sum_{j=1}^{J_{k-1}^\clut}w_{k-1}^\clutj}
 \end{equation}
 
-\subsubsection*{Update}
+\subsubsection{Update}
 
 Given a set of measurements $Z_k = \{z_1,\;z_2,\;...\;z_{Jzk}\}$ with linear measurement model
 \begin{align}
@@ -483,7 +521,7 @@ where
 with $\langle a, b \rangle$ denoting the inner product of $a$ and $b$ and $B(a, b)$ the Beta function.
 
 
-\subsubsection*{Pruning and Merging}
+\subsubsection{Pruning and Merging}
 Like the $\lambda$-CPHD filter the number of components in the target and clutter intensities will quickly grow and thus require pruning and merging. Pruning and merging of clutter and target intensities both follow the same general algorithm that was used for the $\lambda$-CPHD. First discard any components with weight less than some minimum $T$. Then, starting with the highest weighted component select all components ``closer'' than some threshold $U$ by some distance metric and merge the components then remove all of the components that were merged and repeat with the highest weighted remaining component. Then if discard the lowest weighted components until there are no more than $J_{max}$ components. Finally, normalize the weights of the remaining components to ensure that the total weight of the mixture is unchanged.\\
 \\
 For the clutter RFS intensity the distance metric used was the squared Hellinger distance between two Beta distributions
@@ -530,7 +568,7 @@ and a set $L$ of Beta mixture component were merged into a new component $\tilde
 \end{equation}
 For the target RFS intensity the same distance metric, equation \eqref{eq:gauss_dist}, as for the Gaussian mixtures of the $\lambda$-CPHD filter was used. The Gaussian portions of each component were likewise merged via equations \eqref{eq:gauss_merge_w} - \eqref{eq:gauss_merge_P}, and the Beta portions of each component were merged via equations \eqref{eq:beta_merge_w} - \eqref{eq:beta_sigsq}.
 
-\subsubsection*{Estimates}
+\subsubsection{Estimates}
 The estimated cardinalities of the target and clutter random finite sets can be found by summing the weights of all of the components in their respective intensities
 \begin{equation}
   \label{eq:lpd_N}
@@ -548,10 +586,10 @@ and estimated clutter rate is
 \end{equation}
 The target position estimates, $\hat{X}_k$, can be found as for the $\lambda$-CPHD by selecting the means of the highest weighted components of $\tilde{v}_k$, replicating each component $round(\tilde{w}_K^\tgtj)$ times, until there are $round(N_k^\tgt)$ targets in $\hat{X}_k$.
 
-\subsection*{Adaptive Labeled Multi Bernoulli Filter}
+\subsection{Adaptive Labeled Multi Bernoulli Filter}
 An adaptive labeled multi-Bernoulli (LMB) filter was implemented by combining a (slightly) modified Labeled Multi Bernoulli\cite{lmb} filter with the $\lambda$-$p_D$-CPHD filter described above, using the same architecture that \cite{adaptive_dglmb} used to make an adaptive $\delta$-generalized labeled multi Bernoulli filter. An adaptive labeled multi-Bernoulli filter was chosen over an adaptive $\delta$-generalized labeled multi Bernoulli filter because \cite{lmb} showed that the LMB filter offers performance that is almost as good as the $\delta$-generalized labeled multi Bernoulli filter, but with a significantly lower computational cost.
 
-\section*{Results}
+\section{Results}
 Numerical studies were done to assess the performance of the filters at tracking objects under varying conditions (e.g.\ clutter rate, detection probability) and with varying parameters. The system simulation and filters were run in Matlab. 10 moving targets were simulated moving through the field of view of a simulated sensor. The targets were simulated with a linear constant velocity model with additive Gaussian noise. The simulation time step was set to $1$ for simplicity.
 
 \begin{align}
@@ -621,7 +659,7 @@ and a weight of $N_\Gamma^\tgt = .01$. The target and clutter survival probabili
 
 Performance was assessed primarily with the optimal subpattern assignment (OSPA)\cite{OSPA} distance. The OSPA distance is a metric designed to measure the performance of a multi-object tracking algorithm. The OSPA distance seeks to meaningfully capture both cardinality and tracking errors, and the overall OSPA distance as well as the location and cardinality components are reported for each test. The OSPA metrics were calculated with the order set to $1$ and  a cutoff distance of $10$.
 
-\subsubsection*{Optimal Performance}
+\subsection{Optimal Filters}
 The first test compared the performance of ``optimal'' filters, configured as described above with as many parameter as possible exactly matching the simulated system.
 \begin{figure}[h]
   \centering
@@ -712,9 +750,9 @@ These results generally align with the expected relative performance of the diff
 \end{figure}
 The estimated clutter and target detection probabilities, and clutter rate from the $\lambda$-$p_D$-CPHD filter, which are also used in the adaptive LMB filter all exhibit some degree of bias, but wind up generating at least sane estimates of their respective parameters, if not extremely accurate estimates. The cardinality estimates of the adaptive LMB filter appear to be more sensitive to the errors in these parameters than those of the $\lambda$-$p_D$-CPHD filter do, with the adaptive LMB showing both a larger RMS error and a larger overall cardinality bias with the mean cardinality error. One other source of parameter estimate error is that as implemented, none of the filtering algorithms take the sensor field of view into account. When a target passes out of the field of view the intensity components associated with that target will remain, and since they stop having measurements associated with them because the target is out of the field of view they wind up skewing the parameter estimates. This can be observed easily in the estimated target detection probability. The true cardinality of visible targets starts to decrease at $t \approx 60$ as targets start to reach the edge of the field of view, and a corresponding decrease in the estimated target detection probability can be observed starting at the same time in figure \ref{fig:opt_param_est}(c).
 
-\subsection*{Parameters Effects}
+\subsection{Parameter Effects}
 Further tests were run to compare the effects of parameter choices on filter behavior. All of these filters were configured the same as in the above ``optimal'' filter tests, except as noted.
-\subsubsection*{Target Detection Probability ($p_D^\tgt$)}
+\subsubsection{Target Detection Probability ($p_D^\tgt$)}
 The filters were tested with the target detection probability value passed to the filters $p_d^\tgt$ set to half of the true target detection probability.
 \begin{table}[H]
   \centering
@@ -727,7 +765,7 @@ The filters were tested with the target detection probability value passed to th
     $LMB$ & 4.6 & 4.05 & 2.17 & 7.02 & 2.39 & 4.73 \\
     $Adaptive LMB$ & 2.59 & 1.84 & 1.83 & 3.88 & 1.41 & 2.56 \\
   \end{tabular}
-  \caption{Performance of filters with $p_D$ set to half the nominal value}
+  \caption{Filter performance with an inaccurate birth model detection probability}
   \label{tab:low_pd}
 \end{table}
 Changing the target detection 
@@ -748,7 +786,7 @@ Changing the target detection
 \end{figure}
 The GMPHD, $\lambda$-CPHD, and LMB filters all exhibit extremely high cardinality errors when run with and incorrect target detection probability. The cardinality estimates from the \lcphd and GMPHD filters both appear to be approximately twice the true cardinality. The cardinality estimate from the LMB filter on the other hand appears to be approximately half the true cardinality. The performance of the two filters that are adaptive in the target detection probability, the adaptive LMB and the \lpdcphd filter remain largely unchanged. Like in the optimal filtering case the \lpdcphd filter appears to outperform the adaptive LMB filter in terms of both cardinality and OSPA.
 
-\subsubsection*{Target Birth Model ($\Gamma^{(1)}$)}
+\subsubsection{Target Birth Model ($\Gamma^{(1)}$)}
 The filters were run against a birth model consisting of a single gaussian component located along the left edge of the sensor's field of view. The weight of the component was not changed relative to the birth model used for testing the ``optimal'' filters
 \begin{figure}[H]
   \centering
@@ -788,7 +826,7 @@ The filters were run against a birth model consisting of a single gaussian compo
   \label{fig:bad_bm_performance}
 \end{figure}
 The GMPHD, $\lambda$-CPHD, and $\lambda$-$p_D$-CPHD filters all seem to be much more robust to errors in the birth model than the LMB and adaptive LMB filters. While all of the filters show an increased OSPA distance relative to their optimal results, the OSPA distances for for the LMB and adaptive LMB filters more than doubled. This inaccuracy seems to be driven primarily by cardinality error. As shown in figure \ref{fig:bad_bm_performance}(a) both of these filters consistently tracked fewer than half of the targets.
-\subsubsection*{Target Survival Probability ($p_S^{(1)}$)}
+\subsubsection{Target Survival Probability ($p_S^{(1)}$)}
 The target survival probability value, $p_S^\tgt$, that was passed to the filters was increased from the ``true'' value of $0.9$ to $0.99$ for the next test.
 \begin{table}[H]
   \centering
@@ -844,7 +882,7 @@ The primary effect of running the filters with a target survival probability of 
   \label{fig:high_ps_param_est}
 \end{figure}
 
-\subsubsection*{Clutter Rate ($\lambda$)}
+\subsubsection{Clutter Rate ($\lambda$)}
 Finally, a test was run with the clutter rate for each filter set to half of the actual clutter rate.
 \begin{table}[H]
   \centering
@@ -877,8 +915,8 @@ Finally, a test was run with the clutter rate for each filter set to half of the
 \end{figure}
 The \lcphd, \lpdcphd, and adaptive LMB filter all estimate their own clutter rates, and so were unaffected by the incorrect clutter rate. The LMB filter still performed reasonably well, but not as well as the \lpdcphd did. The GMPHD filter appeared to be very susceptible to cardinality errors caused by the incorrect clutter rate and exibited a significant bias in the cardinality of its estimates.
 
-\section*{Conclusions}
-Under optimal conditions the labeled multi-Bernoulli filter clearly outperformed all of the other filters, with the lowest OSPA score and almost 0 cardinality bias; however, it appears to be very sensitive to differences between the model parameters it uses and the true system. This was especially true for the target detection probability and birth model, where inaccuracies in the parameters resulted in significant estimation errors. The \lcphd and GMPHD were similarly extremely susceptible to errors in the target detection probability, which induced significant biases in the cardinality estimates. The \lpdcphd and the adaptive LMB filter were unsurprisingly the most robust to incorrect parameters, as they have the ability to estimate some of the parameters on the fly. However, the adaptive LMB filter did appear to have a strange sensitivity to survival probability that none of the other filters exhibited. The \lpdcphd filter was almost never the best performing filter in any of the tests; however, it appeared to be robust to almost all of the modelling errors that were tested. In a situation that can be well modeled a filter like the LMB will almost certainly outperform the \lpdcphd. However, in real world tracking applications, where the true model parameters are often not well known the more robust \lpdcphd filter seems like a better choice. Additionally, in many  real world applications being able to provide better ``worst case'' performance can be more important than best case performance, and the ``worst case'' performance of the \lpdcphd filter was significantly better than any of the other 4 filters that were tested.\\
+\section{Conclusions}
+Under optimal conditions the labeled multi-Bernoulli filter clearly outperformed all of the other filters, with the lowest OSPA score and almost 0 cardinality bias; however, it appears to be very sensitive to differences between the model parameters it uses and the true system. This was especially true for the target detection probability and birth model, where inaccuracies in the parameters resulted in significant estimation errors. The \lcphd and GMPHD were similarly extremely susceptible to errors in the target detection probability, which induced significant biases in the cardinality estimates. The \lpdcphd and the adaptive LMB filter were unsurprisingly the most robust to incorrect parameters, as they have the ability to estimate some of the parameters on the fly. However, the adaptive LMB filter did appear to have a strange sensitivity to survival probability that none of the other filters exhibited. The \lpdcphd filter was almost never the best performing filter in any of the tests; however, it appeared to be robust to almost all of the modelling errors that were tested. In a situation that can be well modeled a filter like the LMB will almost certainly outperform the \lpdcphd. However, in real world tracking applications, where the true model parameters are often not well known the more robust \lpdcphd filter seems like a better choice. Additionally, in many  real world applications being able to provide better ``worst case'' performance can be more important than best case performance, and the ``worst case'' performance of the \lpdcphd filter was significantly better than any of the other 4 filters that were tested. The main drawback of the \lpdcphd filter compared to the adaptive LMB filter is that the \lpdcphd filter does not provide track labels. For applications that require labels the adaptive LMB filter appears to represent the best tradeoff between robustness and performance.\\
 \\
 Another reason that the \lpdcphd filter is an attractive choice is that it offers a good balance of performance and computational complexity. The execution times for each filter were tracked during the testing, and the average time per estimate was calculated for each filter
 
